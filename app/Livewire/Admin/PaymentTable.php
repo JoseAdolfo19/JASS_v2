@@ -24,6 +24,7 @@ class PaymentTable extends Component
     public float $montoCobrar       = 10;
     public bool  $aplicarMora       = true;
     public float $totalFinal        = 0;
+    public $payments               = [];
 
     // =========================================================================
     // CICLO DE VIDA
@@ -48,7 +49,7 @@ class PaymentTable extends Component
 
     public function updatedAsociadoId($value): void
     {
-        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal']);
+        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal', 'payments']);
         if (!$value) return;
         $this->cargarDeuda($value);
     }
@@ -59,6 +60,10 @@ class PaymentTable extends Component
 
         $asociado = Associate::find($asociadoId);
         if (!$asociado) return;
+
+        $this->payments = Payment::where('associate_id', $asociadoId)
+            ->latest()
+            ->get();
 
         $fechaInicio = $asociado->entry_date
             ? Carbon::parse($asociado->entry_date)->startOfMonth()
@@ -159,10 +164,10 @@ class PaymentTable extends Component
         ]);
 
         // Generar y descargar el recibo PDF
-        return $this->generarReciboPDF($payment);
+        return $this->generarReciboPDFActual($payment);
     }
 
-    private function generarReciboPDF(Payment $payment): mixed
+    private function generarReciboPDFActual(Payment $payment): mixed
     {
         $asociado = Associate::with('sector')->find($this->asociado_id);
 
@@ -204,6 +209,70 @@ class PaymentTable extends Component
             $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
             echo $pdf->output();
         }, 'recibo-' . $payment->invoice_number . '.pdf');
+    }
+
+    public function imprimirPago(int $paymentId): mixed
+    {
+        $payment = Payment::find($paymentId);
+        if (!$payment || $payment->associate_id !== $this->asociado_id) {
+            return null;
+        }
+
+        return $this->generarReciboPDF($payment);
+    }
+
+    private function generarReciboPDF(Payment $payment): mixed
+    {
+        $asociado = Associate::with('sector')->find($payment->associate_id);
+
+        $receiptData = $this->buildReceiptData($payment);
+
+        $jass = [
+            'nombre'     => Setting::get('jass_nombre', 'JASS'),
+            'direccion'  => Setting::get('jass_direccion', ''),
+            'presidente' => Setting::get('jass_presidente', ''),
+            'tesorero'   => Setting::get('jass_tesorero', ''),
+        ];
+
+        $data = array_merge($receiptData, [
+            'jass'          => $jass,
+            'asociado'      => $asociado,
+            'payment'       => $payment,
+            'fecha_emision' => now()->format('d/m/Y H:i'),
+        ]);
+
+        return response()->streamDownload(function () use ($data) {
+            $pdf = Pdf::loadView('pdf.recibo', $data);
+            $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
+            $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
+            // Tamaño ticket 80mm
+            $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
+            echo $pdf->output();
+        }, 'recibo-' . $payment->invoice_number . '.pdf');
+    }
+
+    private function buildReceiptData(Payment $payment): array
+    {
+        $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($payment) {
+            $baseAmount = max((float) $payment->amount - (float) ($payment->late_fee_applied ?? 0), 0);
+            $periodos   = max(count($payment->months_paid ?: []), 1);
+            $montoPorMes = round($baseAmount / $periodos, 2);
+
+            return [
+                'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
+                'monto'    => $montoPorMes,
+            ];
+        });
+
+        $subtotal = round($meses->sum('monto'), 2);
+        $mora     = (float) ($payment->late_fee_applied ?? 0);
+
+        return [
+            'meses'    => $meses,
+            'subtotal' => $subtotal,
+            'mora'     => $mora,
+            'total'    => (float) $payment->amount,
+        ];
     }
 
     // =========================================================================

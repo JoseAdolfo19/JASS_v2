@@ -20,7 +20,7 @@
     <div class="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
         <div>
             <h2 class="text-white font-black uppercase italic text-2xl">Padrón General de Socios</h2>
-            <p class="text-zinc-500 text-xs font-bold mt-1">Gestión completa del padrón maestro</p>
+            <p class="text-zinc-500 text-xs font-bold mt-1">Gestión completa del padrón</p>
         </div>
 
         <div class="flex gap-3">
@@ -51,7 +51,7 @@
             {{-- Buscador --}}
             <div class="flex-1">
                 <input wire:model.live.debounce.300ms="search" type="text"
-                    placeholder="Buscar por nombre, apellido, DNI o N° medidor..."
+                    placeholder="Buscar por nombre, apellido, DNI ..."
                     class="w-full bg-zinc-800 border border-zinc-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500">
             </div>
 

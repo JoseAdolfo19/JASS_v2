@@ -57,6 +57,32 @@
                         <button wire:click="confirmarPago" class="bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-4 rounded-2xl uppercase text-xs">Cobrar</button>
                     </div>
                 </div>
+
+                @if(!empty($payments) && $payments->count())
+                    <div class="mt-8 space-y-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-white uppercase text-xs font-black tracking-widest">Pagos Realizados</h3>
+                            <span class="text-zinc-400 text-[10px]">{{ $payments->count() }} pagos</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            @foreach($payments as $pago)
+                                <div class="p-4 bg-zinc-800 rounded-3xl border border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="space-y-1">
+                                        <p class="text-zinc-400 text-[10px] uppercase tracking-[0.25em]">Recibo N° {{ $pago->invoice_number }}</p>
+                                        <p class="text-white font-black text-sm">{{ strtoupper($pago->concept) }}</p>
+                                        <p class="text-zinc-500 text-[11px]">Fecha: {{ $pago->created_at->format('d/m/Y H:i') }}</p>
+                                        <p class="text-zinc-400 text-[11px]">Importe: S/ {{ number_format($pago->amount, 2) }}</p>
+                                        @if($pago->late_fee_applied > 0)
+                                            <p class="text-amber-400 text-[11px]">Mora: S/ {{ number_format($pago->late_fee_applied, 2) }}</p>
+                                        @endif
+                                    </div>
+                                    <button wire:click="imprimirPago({{ $pago->id }})" class="bg-green-600 hover:bg-green-500 text-white uppercase text-[11px] font-black px-5 py-3 rounded-2xl">Imprimir</button>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
     </div>
