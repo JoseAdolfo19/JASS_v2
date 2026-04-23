@@ -297,4 +297,12 @@
 
         </div>
     </div>
+
+    @script
+    <script>
+        $wire.on('open-url', (event) => {
+            window.open(event.url, '_blank');
+        });
+    </script>
+    @endscript
 </div>

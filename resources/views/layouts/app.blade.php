@@ -17,9 +17,9 @@
             <div class="container mx-auto flex justify-between items-center">
                 <span class="text-xl font-bold text-blue-500">JASS HUAYOCCARY</span>
                 <div class="space-x-4 flex items-center">
-                    <a href="/home" class="hover:text-white">Inicio</a>
-                    <a href="/sectores" class="hover:text-white">Sectores</a>
-                    <a href="/asociados" class="hover:text-white">Asociados</a>
+                    <a href="{{ route('admin.home') }}" class="hover:text-white">Inicio</a>
+                    <a href="{{ route('admin.sectores') }}" class="hover:text-white">Sectores</a>
+                    <a href="{{ route('admin.asociados') }}" class="hover:text-white">Asociados</a>
 
                     <div class="relative group inline-block">
                         <button type="button" class="text-zinc-200 hover:text-white transition px-2 py-1 rounded-sm border border-zinc-700 bg-zinc-900/80">
@@ -30,8 +30,8 @@
                                 <div>
                                     <span class="block text-sm text-sky-300 uppercase tracking-wide font-semibold mb-2">Ingresos</span>
                                     <ul class="space-y-2 text-sm">
-                                        <li><a href="/pagos" class="block rounded-md px-2 py-1 hover:bg-zinc-800 hover:text-white">Pagos</a></li>
-                                        <li><a href="/historial-pagos" class="block rounded-md px-2 py-1 hover:bg-zinc-800 hover:text-white">Historial de Pagos</a></li>
+                                        <li><a href="{{ route('admin.pagos') }}" class="block rounded-md px-2 py-1 hover:bg-zinc-800 hover:text-white">Pagos</a></li>
+                                        <li><a href="{{ route('admin.historial-pagos') }}" class="block rounded-md px-2 py-1 hover:bg-zinc-800 hover:text-white">Historial de Pagos</a></li>
                                     </ul>
                                 </div>
                                 <div>

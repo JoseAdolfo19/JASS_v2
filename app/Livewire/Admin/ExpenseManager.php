@@ -118,24 +118,9 @@ class ExpenseManager extends Component
     // GENERAR PDF DEL COMPROBANTE
     // =========================================================================
 
-    public function generarPDF(int $id): mixed
+    public function generarPDF(int $id): void
     {
-        $expense = Expense::findOrFail($id);
-
-        $jass = [
-            'nombre'     => Setting::get('jass_nombre', 'JASS'),
-            'direccion'  => Setting::get('jass_direccion', ''),
-            'presidente' => Setting::get('jass_presidente', ''),
-            'tesorero'   => Setting::get('jass_tesorero', ''),
-        ];
-
-        return response()->streamDownload(function () use ($expense, $jass) {
-            $pdf = Pdf::loadView('pdf.comprobante-egreso', compact('expense', 'jass'));
-            $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
-            $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            $pdf->getDomPDF()->setPaper('a4', 'portrait');
-            echo $pdf->output();
-        }, 'egreso-' . $expense->id . '-' . $expense->date->format('Y-m-d') . '.pdf');
+        $this->dispatch('open-url', url: route('egreso.pdf', $id));
     }
 
     // =========================================================================

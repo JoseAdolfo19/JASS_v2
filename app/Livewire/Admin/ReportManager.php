@@ -3,17 +3,16 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Associate;
-use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Sector;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\ReportService;
+use App\Services\PdfExportService;
 use App\Models\Event;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Component;
-use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\AttendanceExport; // Para exportar asistencias a Excel
+use App\Exports\AttendanceExport;
 
 class ReportManager extends Component
 {
@@ -23,6 +22,9 @@ class ReportManager extends Component
 
     public string $tab          = 'diario';
     public string $fecha_filtro = '';
+
+    public bool $showReportDetails = false;
+    public bool $showAlertConfig   = false;
 
     // Formulario de cobro
     public $associate_id;
@@ -40,6 +42,16 @@ class ReportManager extends Component
     public function mount(): void
     {
         $this->fecha_filtro = date('Y-m-d');
+    }
+
+    protected function reportService(): ReportService
+    {
+        return new ReportService();
+    }
+
+    protected function pdfService(): PdfExportService
+    {
+        return new PdfExportService();
     }
 
     // =========================================================================
@@ -111,83 +123,6 @@ class ReportManager extends Component
     // =========================================================================
 
     /**
-     * Corrige strings con codificación incorrecta (Latin-1 guardado como UTF-8).
-     * Se aplica sobre strings que vienen de la BD en get*Data().
-     */
-    private function fixUtf8(string $value): string
-    {
-        if (!mb_check_encoding($value, 'UTF-8')) {
-            $value = mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
-        }
-
-        return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value) ?? $value;
-    }
-
-    /**
-     * Sanitiza datos para exportación PDF (escapa HTML, múltiples encodings).
-     * Se aplica en buildPdf() antes de renderizar la vista PDF.
-     */
-    private function sanitizeForPDF(mixed $data): mixed
-    {
-        if (is_string($data)) {
-            foreach (['ISO-8859-1', 'Windows-1252', 'CP1252'] as $encoding) {
-                $converted = @iconv($encoding, 'UTF-8//TRANSLIT//IGNORE', $data);
-                if ($converted !== false && $converted !== $data) {
-                    $data = $converted;
-                    break;
-                }
-            }
-
-            $data = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $data) ?? $data;
-
-            if (!mb_check_encoding($data, 'UTF-8')) {
-                $data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
-            }
-
-            $data = html_entity_decode($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
-        }
-
-        if (is_array($data)) {
-            return array_map([$this, 'sanitizeForPDF'], $data);
-        }
-
-        if ($data instanceof Collection) {
-            return $data->map(fn($item) => $this->sanitizeForPDF($item));
-        }
-
-        if (is_object($data)) {
-            foreach (get_object_vars($data) as $key => $value) {
-                $data->$key = $this->sanitizeForPDF($value);
-            }
-            return $data;
-        }
-
-        return $data;
-    }
-
-    /**
-     * Construye el array estandarizado de un asociado para los reportes.
-     */
-    private function buildAssociateArray(Associate $associate): array
-    {
-        return [
-            'name'      => $this->fixUtf8($associate->name ?? ''),
-            'last_name' => $this->fixUtf8($associate->last_name ?? ''),
-            'sector'    => $this->fixUtf8($associate->sector?->name ?? 'Sin sector'),
-        ];
-    }
-
-    /**
-     * Calcula la mora según bloques de 3 meses (S/60 por bloque).
-     */
-    private function calcularMora(int $mesesDeuda): float
-    {
-        if ($mesesDeuda < 3) return 0;
-        return floor($mesesDeuda / 3) * 60;
-    }
-
-    /**
      * Calcula los meses de deuda de un asociado desde su fecha de ingreso.
      */
     private function calcularMesesDeuda(Associate $associate): int
@@ -197,23 +132,6 @@ class ReportManager extends Component
             : Carbon::parse($associate->created_at)->startOfMonth();
 
         return $fechaInicio->diffInMonths(Carbon::now()->startOfMonth());
-    }
-
-    /**
-     * Genera y descarga un PDF usando streamDownload (compatible con Livewire).
-     * pdf->download() no funciona en Livewire porque choca con la respuesta JSON.
-     */
-    private function buildPdf(string $view, mixed $data, string $filename): mixed
-    {
-        $data = $this->sanitizeForPDF($data);
-
-        return response()->streamDownload(function () use ($view, $data) {
-            $pdf = Pdf::loadView($view, compact('data'));
-            $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
-            $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            $pdf->getDomPDF()->setPaper('a4', 'portrait');
-            echo $pdf->output();
-        }, $filename . '-' . date('Y-m-d') . '.pdf');
     }
 
     // =========================================================================
@@ -226,24 +144,7 @@ class ReportManager extends Component
      */
     public function getMorososData(): Collection
     {
-        $montoCuota = 10;
-
-        return Associate::with(['sector', 'payments' => fn($q) => $q->latest()])
-            ->whereDoesntHave('payments', fn($q) => $q->where('created_at', '>=', Carbon::now()->subMonths(2)))
-            ->get()
-            ->map(function (Associate $associate) use ($montoCuota) {
-                $mesesDeuda = $this->calcularMesesDeuda($associate);
-                $subtotal   = $mesesDeuda * $montoCuota;
-                $mora       = $this->calcularMora($mesesDeuda);
-
-                return [
-                    'associate'   => $this->buildAssociateArray($associate),
-                    'meses_deuda' => $mesesDeuda,
-                    'subtotal'    => $subtotal,
-                    'mora'        => $mora,
-                    'total'       => $subtotal + $mora,
-                ];
-            });
+        return $this->reportService()->getMorososData();
     }
 
     /**
@@ -252,14 +153,7 @@ class ReportManager extends Component
      */
     public function getBalanceData(): array
     {
-        $ingresos = Payment::sum('amount');
-        $egresos  = Expense::sum('amount');
-
-        return [
-            'ingresos' => (float) $ingresos,
-            'egresos'  => (float) $egresos,
-            'saldo'    => (float) ($ingresos - $egresos),
-        ];
+        return $this->reportService()->getBalanceData();
     }
 
     /**
@@ -268,16 +162,7 @@ class ReportManager extends Component
      */
     public function getAltasBajasData(): array
     {
-        $anio = (int) date('Y');
-
-        $altas = Associate::whereYear('created_at', $anio)->count();
-        $bajas = Associate::onlyTrashed()->whereYear('deleted_at', $anio)->count();
-
-        return [
-            'altas'            => $altas,
-            'bajas'            => $bajas,
-            'crecimiento_neto' => $altas - $bajas,
-        ];
+        return $this->reportService()->getAltasBajasData();
     }
 
     /**
@@ -286,23 +171,7 @@ class ReportManager extends Component
      */
     public function getMultasData(): Collection
     {
-        return Payment::where('type', 'falta')
-            ->with('associate.sector')
-            ->get()
-            ->groupBy('associate_id')
-            ->map(function (Collection $pagos, int $associateId) {
-                $associate = Associate::find($associateId);
-
-                if (!$associate) return null;
-
-                return [
-                    'associate'       => $this->buildAssociateArray($associate),
-                    'cantidad_multas' => $pagos->count(),
-                    'total_multas'    => (float) $pagos->sum('amount'),
-                ];
-            })
-            ->filter()
-            ->values();
+        return $this->reportService()->getMultasData();
     }
 
     /**
@@ -311,13 +180,7 @@ class ReportManager extends Component
      */
     public function getAptosParaCorteData(): Collection
     {
-        return Associate::with('sector')
-            ->whereDoesntHave('payments', fn($q) => $q->where('created_at', '>=', Carbon::now()->subMonths(6)))
-            ->get()
-            ->map(fn(Associate $associate) => [
-                'associate'   => $this->buildAssociateArray($associate),
-                'meses_deuda' => $this->calcularMesesDeuda($associate),
-            ]);
+        return $this->reportService()->getAptosParaCorteData();
     }
 
     // =========================================================================
@@ -326,28 +189,58 @@ class ReportManager extends Component
 
     public function exportMorososPDF(): mixed
     {
-        return $this->buildPdf('pdf.reportes.morosos', $this->getMorososData(), 'padron-morosos');
+        return $this->pdfService()->buildPdf('pdf.reportes.morosos', $this->getMorososData(), 'padron-morosos');
     }
 
     public function exportBalancePDF(): mixed
     {
-        return $this->buildPdf('pdf.reportes.balance', $this->getBalanceData(), 'balance-caja');
+        return $this->pdfService()->buildPdf('pdf.reportes.balance', $this->getBalanceData(), 'balance-caja');
     }
 
     public function exportAltasBajasPDF(): mixed
     {
-        return $this->buildPdf('pdf.reportes.altas-bajas', $this->getAltasBajasData(), 'altas-bajas');
+        return $this->pdfService()->buildPdf('pdf.reportes.altas-bajas', $this->getAltasBajasData(), 'altas-bajas');
     }
 
     public function exportMultasPDF(): mixed
     {
-        return $this->buildPdf('pdf.reportes.multas', $this->getMultasData(), 'deuda-multas');
+        return $this->pdfService()->buildPdf('pdf.reportes.multas', $this->getMultasData(), 'deuda-multas');
     }
 
     public function exportAptosCortePDF(): mixed
     {
-        return $this->buildPdf('pdf.reportes.aptos-corte', $this->getAptosParaCorteData(), 'aptos-corte');
+        return $this->pdfService()->buildPdf('pdf.reportes.aptos-corte', $this->getAptosParaCorteData(), 'aptos-corte');
     }
+
+    public function exportAllReportsPDF(): mixed
+    {
+        return $this->pdfService()->buildPdf('pdf.reportes.todos', [
+            'morosos'   => $this->getMorososData(),
+            'balance'   => $this->getBalanceData(),
+            'altasBajas'=> $this->getAltasBajasData(),
+            'multas'    => $this->getMultasData(),
+            'aptosCorte'=> $this->getAptosParaCorteData(),
+        ], 'reportes-completos');
+    }
+
+    public function viewDetails(): void
+    {
+        $this->showReportDetails = true;
+        $this->showAlertConfig   = false;
+    }
+
+    public function configureAlerts(): void
+    {
+        $this->showAlertConfig   = true;
+        $this->showReportDetails = false;
+    }
+
+    public function hideQuickPanel(): void
+    {
+        $this->showReportDetails = false;
+        $this->showAlertConfig   = false;
+    }
+
     public function exportAttendanceExcel($eventId)
     {
         $event = Event::find($eventId);
@@ -370,26 +263,19 @@ class ReportManager extends Component
     public function render(): mixed
     {
         // Resumen de caja del día filtrado
-        $resumenDiario = Payment::whereDate('created_at', $this->fecha_filtro)
-            ->select('type', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as cantidad'))
-            ->groupBy('type')
-            ->get();
+        $resumenDiario = $this->reportService()->getDailySummary($this->fecha_filtro);
 
         // Lista de morosos sin mapear (para tabla principal)
-        $morosos = Associate::with(['sector', 'payments' => fn($q) => $q->latest()])
-            ->whereDoesntHave('payments', fn($q) => $q->where('created_at', '>=', Carbon::now()->subMonths(2)))
-            ->get();
+        $morosos = $this->reportService()->getMorososModels();
 
         // Padrón completo ordenado
-        $associates = Associate::orderBy('last_name')->get();
+        $associates = $this->reportService()->getAllAssociates();
 
         // Historial de pagos paginado
-        $payments = Payment::with('associate')->latest()->paginate(10);
+        $payments = $this->reportService()->getPaymentsPaginated(10);
 
         // Sectores con sus socios
-        $sectoresConSocios = Sector::with(['associates' => fn($q) => $q->orderBy('last_name')])
-            ->withCount('associates')
-            ->get();
+        $sectoresConSocios = $this->reportService()->getSectoresConSocios();
 
         return view('livewire.admin.report-manager', [
             // Datos generales
