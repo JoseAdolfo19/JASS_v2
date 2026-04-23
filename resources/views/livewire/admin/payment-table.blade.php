@@ -39,6 +39,12 @@
                 </div>
 
                 <div class="bg-black/40 p-6 rounded-3xl border border-zinc-800">
+                    @if($cantidadMultas > 0)
+                        <div class="mb-4 p-4 rounded-3xl bg-zinc-900 border border-amber-500/20 text-amber-200 text-xs">
+                            Multas pendientes: {{ $cantidadMultas }} falta(s) cerrada(s) por cobrar.
+                            <strong class="text-white">S/ {{ number_format($finesPendientes, 2) }}</strong> se agregará a la boleta.
+                        </div>
+                    @endif
                     <div class="flex justify-between items-center mb-4">
                         <span class="text-zinc-500 font-bold text-[10px] uppercase">Mora Calculada</span>
                         <div class="flex items-center gap-3">

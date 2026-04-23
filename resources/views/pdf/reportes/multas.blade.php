@@ -18,7 +18,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>RESUMEN DE DEUDA POR MULTAS</h1>
+        <h1>RESUMEN DE DEUDA POR MULTAS DE FAENAS Y ASAMBLEAS</h1>
         <p>Separación de ingresos por conceptos especiales</p>
         <p>Fecha de generación: {{ date('d/m/Y H:i') }}</p>
     </div>
@@ -44,7 +44,7 @@
             @if(count($data) > 0)
             <tr class="total-row">
                 <td colspan="3"><strong>TOTAL GENERAL</strong></td>
-                <td><strong>S/ {{ number_format(array_sum(array_column($data, 'total_multas')), 2) }}</strong></td>
+                <td><strong>S/ {{ number_format($data->sum('total_multas'), 2) }}</strong></td>
             </tr>
             @else
             <tr>

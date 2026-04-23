@@ -22,8 +22,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @forelse($morososData->take(6) as $item)
                         <div class="bg-zinc-800/50 p-4 rounded-xl">
-                            <div class="text-white font-bold text-sm">{{ $item['associate']->last_name }}, {{ $item['associate']->name }}</div>
-                            <div class="text-zinc-400 text-xs">{{ $item['associate']->sector->name ?? 'Sin sector' }}</div>
+                            <div class="text-white font-bold text-sm">{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</div>
+                            <div class="text-zinc-400 text-xs">{{ $item['associate']['sector'] ?? 'Sin sector' }}</div>
                             <div class="text-red-400 font-black text-lg mt-2">{{ $item['meses_deuda'] }} meses</div>
                             <div class="text-green-400 font-black">S/ {{ number_format($item['total'], 2) }}</div>
                         </div>
@@ -108,7 +108,7 @@
             <div class="bg-[#1a1a1a] rounded-[2.5rem] border border-zinc-800 overflow-hidden shadow-2xl">
                 <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
                     <div>
-                        <h3 class="text-white font-black uppercase italic text-lg">Deuda por Multas</h3>
+                        <h3 class="text-white font-black uppercase italic text-lg">Deuda por Multas de Faenas y Asambleas</h3>
                         <p class="text-zinc-500 text-[10px] font-bold">Separación de ingresos por conceptos especiales</p>
                     </div>
                     <button wire:click="exportMultasPDF" class="bg-orange-600 hover:bg-orange-500 text-white font-black px-4 py-2 rounded-xl uppercase text-xs flex items-center gap-2">
@@ -122,7 +122,7 @@
                         @foreach($multasData->take(5) as $item)
                         <div class="flex justify-between items-center bg-zinc-800/50 p-3 rounded-xl">
                             <div>
-                                <div class="text-white font-bold text-sm">{{ $item['associate']->last_name }}, {{ $item['associate']->name }}</div>
+                                <div class="text-white font-bold text-sm">{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</div>
                                 <div class="text-zinc-400 text-xs">{{ $item['cantidad_multas'] }} multa(s)</div>
                             </div>
                             <div class="text-orange-400 font-black text-lg">S/ {{ number_format($item['total_multas'], 2) }}</div>
@@ -146,7 +146,7 @@
             <div class="bg-[#1a1a1a] rounded-[2.5rem] border border-zinc-800 overflow-hidden shadow-2xl">
                 <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
                     <div>
-                        <h3 class="text-red-400 font-black uppercase italic text-lg">Aptos para Corte</h3>
+                        <h3 class="text-red-400 font-black uppercase italic text-lg">Aptos para Corte de Servicios</h3>
                         <p class="text-zinc-500 text-[10px] font-bold">Alerta de morosidad extrema</p>
                     </div>
                     <button wire:click="exportAptosCortePDF" class="bg-red-600 hover:bg-red-500 text-white font-black px-4 py-2 rounded-xl uppercase text-xs flex items-center gap-2">
@@ -157,15 +157,15 @@
                 <div class="p-6">
                     @if($aptosCorteData->count() > 0)
                     <div class="bg-red-900/20 border border-red-600/30 p-4 rounded-xl mb-4">
-                        <div class="text-red-400 font-black text-sm uppercase">⚠️ Alerta Crítica</div>
+                        <div class="text-red-400 font-black text-sm uppercase">Alerta Crítica</div>
                         <div class="text-zinc-300 text-xs">{{ $aptosCorteData->count() }} socio(s) superan los 6 meses de deuda</div>
                     </div>
                     <div class="space-y-3">
                         @foreach($aptosCorteData->take(5) as $item)
                         <div class="flex justify-between items-center bg-red-900/10 border border-red-600/20 p-3 rounded-xl">
                             <div>
-                                <div class="text-white font-bold text-sm">{{ $item['associate']->last_name }}, {{ $item['associate']->name }}</div>
-                                <div class="text-zinc-400 text-xs">{{ $item['associate']->sector->name ?? 'Sin sector' }}</div>
+                                <div class="text-white font-bold text-sm">{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</div>
+                                <div class="text-zinc-400 text-xs">{{ $item['associate']['sector'] ?? 'Sin sector' }}</div>
                             </div>
                             <div class="text-red-400 font-black text-lg">{{ $item['meses_deuda'] }} meses</div>
                         </div>

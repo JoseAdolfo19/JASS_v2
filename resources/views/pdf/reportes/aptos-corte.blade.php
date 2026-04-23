@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>Lista de Aptos para Corte - {{ date('d/m/Y') }}</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -15,19 +14,18 @@
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f5f5f5; font-weight: bold; }
         .urgent { background-color: #fef2f2; }
-        .urgent td { color: #dc2626; font-weight: bold; }
+        .urgent td { color: #000000; font-weight: bold; }
         .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>LISTA DE "APTOS PARA CORTE"</h1>
-        <p>Alerta de morosidad extrema</p>
         <p>Fecha de generación: {{ date('d/m/Y H:i') }}</p>
     </div>
 
     <div class="alert">
-        <strong>!!ATENCIÓN:</strong> Esta lista contiene socios que superan los 6 meses de deuda.<br>
+        <strong>¡ATENCIÓN!</strong> Esta lista contiene socios que superan los 3 meses de deuda.<br>
         Se recomienda ejecutar sanciones y cortes de servicio según estatuto.
     </div>
 
@@ -49,6 +47,7 @@
                 <td><strong>APTO PARA CORTE</strong></td>
             </tr>
             @endforeach
+
             @if($data->count() == 0)
             <tr>
                 <td colspan="4" style="text-align: center; color: #10b981; background-color: #f0fdf4;">
@@ -61,7 +60,7 @@
 
     <div class="footer">
         <p>Reporte generado por el Sistema de Gestión JASS - {{ date('Y') }}</p>
-        <p>Ejecución de sanciones y cortes de servicio según estatuto</p>
+        <p>Ejecución de sanciones según estatuto</p>
     </div>
 </body>
 </html>

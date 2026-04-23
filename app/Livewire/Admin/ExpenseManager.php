@@ -3,6 +3,8 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Expense;
+use App\Models\Setting;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -21,14 +23,19 @@ class ExpenseManager extends Component
     public $amount;
     public string $date           = '';
     public string $voucher_number = '';
-    public $voucher;              // Archivo temporal de Livewire
+    public string $voucher_type   = 'boleta';   // tipo de comprobante
+    public string $beneficiary    = '';          // proveedor / beneficiario
+    public string $ruc_dni        = '';          // RUC o DNI
+    public string $notes          = '';          // observaciones
+    public $voucher;                             // imagen del comprobante
 
     // =========================================================================
     // PROPIEDADES DE UI
     // =========================================================================
 
     public string $search         = '';
-    public ?int $confirmingDelete = null; // ID del gasto a eliminar
+    public string $filterType     = '';          // filtro por tipo de comprobante
+    public ?int $confirmingDelete = null;
 
     // =========================================================================
     // VALIDACIÓN
@@ -41,19 +48,23 @@ class ExpenseManager extends Component
             'category'       => 'required|in:Materiales,Servicios,Planilla,Viáticos,Otros',
             'amount'         => 'required|numeric|min:0.01',
             'date'           => 'required|date',
+            'voucher_type'   => 'required|in:boleta,factura,recibo_honorarios,declaracion_jurada,otro',
             'voucher_number' => 'nullable|string|max:100',
-            'voucher'        => 'nullable|image|max:4096', // max 4MB
+            'beneficiary'    => 'nullable|string|max:200',
+            'ruc_dni'        => 'nullable|string|max:20',
+            'notes'          => 'nullable|string|max:500',
+            'voucher'        => 'nullable|image|max:4096',
         ];
     }
 
     protected $messages = [
         'description.required' => 'La descripción es obligatoria.',
-        'description.min'      => 'La descripción debe tener al menos 3 caracteres.',
+        'description.min'      => 'Mínimo 3 caracteres.',
         'amount.required'      => 'El monto es obligatorio.',
         'amount.numeric'       => 'El monto debe ser un número.',
         'amount.min'           => 'El monto debe ser mayor a 0.',
         'date.required'        => 'La fecha es obligatoria.',
-        'voucher.image'        => 'El comprobante debe ser una imagen (JPG, PNG, etc).',
+        'voucher.image'        => 'Debe ser una imagen (JPG, PNG).',
         'voucher.max'          => 'La imagen no debe superar 4MB.',
     ];
 
@@ -67,7 +78,14 @@ class ExpenseManager extends Component
     }
 
     // =========================================================================
-    // ACCIONES
+    // WATCHERS
+    // =========================================================================
+
+    public function updatedSearch(): void     { $this->resetPage(); }
+    public function updatedFilterType(): void { $this->resetPage(); }
+
+    // =========================================================================
+    // GUARDAR EGRESO
     // =========================================================================
 
     public function save(): void
@@ -75,8 +93,6 @@ class ExpenseManager extends Component
         $this->validate();
 
         $voucherPath = null;
-
-        // Si se subió una imagen, guardarla en storage/app/public/vouchers
         if ($this->voucher) {
             $voucherPath = $this->voucher->store('vouchers', 'public');
         }
@@ -88,44 +104,71 @@ class ExpenseManager extends Component
             'date'           => $this->date,
             'voucher_number' => $this->voucher_number ?: null,
             'voucher_path'   => $voucherPath,
+            'voucher_type'   => $this->voucher_type,
+            'beneficiary'    => $this->beneficiary ?: null,
+            'ruc_dni'        => $this->ruc_dni ?: null,
+            'notes'          => $this->notes ?: null,
         ]);
 
         $this->resetForm();
-        session()->flash('message', 'Gasto registrado correctamente.');
+        session()->flash('message', 'Egreso registrado correctamente.');
     }
 
-    public function confirmDelete(int $id): void
+    // =========================================================================
+    // GENERAR PDF DEL COMPROBANTE
+    // =========================================================================
+
+    public function generarPDF(int $id): mixed
     {
-        $this->confirmingDelete = $id;
+        $expense = Expense::findOrFail($id);
+
+        $jass = [
+            'nombre'     => Setting::get('jass_nombre', 'JASS'),
+            'direccion'  => Setting::get('jass_direccion', ''),
+            'presidente' => Setting::get('jass_presidente', ''),
+            'tesorero'   => Setting::get('jass_tesorero', ''),
+        ];
+
+        return response()->streamDownload(function () use ($expense, $jass) {
+            $pdf = Pdf::loadView('pdf.comprobante-egreso', compact('expense', 'jass'));
+            $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
+            $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
+            $pdf->getDomPDF()->setPaper('a4', 'portrait');
+            echo $pdf->output();
+        }, 'egreso-' . $expense->id . '-' . $expense->date->format('Y-m-d') . '.pdf');
     }
 
-    public function cancelDelete(): void
-    {
-        $this->confirmingDelete = null;
-    }
+    // =========================================================================
+    // ELIMINAR
+    // =========================================================================
+
+    public function confirmDelete(int $id): void { $this->confirmingDelete = $id; }
+    public function cancelDelete(): void          { $this->confirmingDelete = null; }
 
     public function delete(int $id): void
     {
         $expense = Expense::find($id);
-
         if (!$expense) return;
 
-        // Eliminar imagen del storage si existe
         if ($expense->voucher_path && \Storage::disk('public')->exists($expense->voucher_path)) {
             \Storage::disk('public')->delete($expense->voucher_path);
         }
 
         $expense->delete();
-
         $this->confirmingDelete = null;
-        session()->flash('message', 'Gasto eliminado correctamente.');
+        session()->flash('message', 'Egreso eliminado correctamente.');
     }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
 
     private function resetForm(): void
     {
-        $this->reset(['description', 'amount', 'voucher_number', 'voucher']);
-        $this->category = 'Otros';
-        $this->date     = date('Y-m-d');
+        $this->reset(['description', 'amount', 'voucher_number', 'voucher', 'beneficiary', 'ruc_dni', 'notes']);
+        $this->category     = 'Otros';
+        $this->voucher_type = 'boleta';
+        $this->date         = date('Y-m-d');
     }
 
     // =========================================================================
@@ -134,14 +177,15 @@ class ExpenseManager extends Component
 
     public function render(): mixed
     {
-        $expenses = Expense::where('description', 'like', '%' . $this->search . '%')
+        $expenses = Expense::when($this->search, fn($q) =>
+                $q->where('description', 'like', '%' . $this->search . '%')
+                  ->orWhere('beneficiary', 'like', '%' . $this->search . '%')
+            )
+            ->when($this->filterType, fn($q) => $q->where('voucher_type', $this->filterType))
             ->latest('date')
             ->paginate(10);
 
-        $totalMes = Expense::whereMonth('date', date('m'))
-            ->whereYear('date', date('Y'))
-            ->sum('amount');
-
+        $totalMes     = Expense::whereMonth('date', date('m'))->whereYear('date', date('Y'))->sum('amount');
         $totalGeneral = Expense::sum('amount');
 
         return view('livewire.admin.expense-manager', [

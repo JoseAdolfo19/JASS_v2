@@ -241,6 +241,12 @@
             <span>S/ {{ number_format($mora, 2) }}</span>
         </div>
         @endif
+        @if(!empty($fine) && $fine > 0)
+        <div class="fila-total mora">
+            <span>Multas por falta</span>
+            <span>S/ {{ number_format($fine, 2) }}</span>
+        </div>
+        @endif
         <div class="fila-total total-final">
             <span>TOTAL PAGADO</span>
             <span>S/ {{ number_format($total, 2) }}</span>

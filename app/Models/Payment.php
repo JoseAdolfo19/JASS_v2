@@ -16,11 +16,13 @@ class Payment extends Model
         'concept',
         'invoice_number',
         'months_paid',
-        'late_fee_applied'
+        'late_fee_applied',
+        'fine_amount',
     ];
 
     protected $casts = [
         'months_paid' => 'array',
+        'fine_amount' => 'float',
     ];
 
     protected $dates = ['created_at', 'updated_at'];

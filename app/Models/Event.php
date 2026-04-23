@@ -2,23 +2,55 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Event extends Model
 {
-    use HasFactory;
+    protected $fillable = [
+        'type',
+        'title',
+        'date',
+        'description',
+        'lista_cerrada',
+    ];
 
-    protected $fillable = ['name', 'type', 'date', 'fine_amount', 'sector_id'];
+    protected $casts = [
+        'date'          => 'date',
+        'lista_cerrada' => 'boolean',
+    ];
 
-    // AGREGAR ESTA RELACIÓN
-    public function sector()
-    {
-        return $this->belongsTo(Sector::class);
-    }
+    // =========================================================================
+    // RELACIONES
+    // =========================================================================
 
     public function attendances()
     {
-        return $this->hasMany(Attendance::class);
+        return $this->hasMany(EventAttendance::class);
+    }
+
+    public function associates()
+    {
+        return $this->belongsToMany(Associate::class, 'event_attendances')
+                    ->withPivot('status')
+                    ->withTimestamps();
+    }
+
+    // =========================================================================
+    // ACCESSORS
+    // =========================================================================
+
+    public function getTotalPresentesAttribute(): int
+    {
+        return $this->attendances()->where('status', 'presente')->count();
+    }
+
+    public function getTotalAusentesAttribute(): int
+    {
+        return $this->attendances()->where('status', 'ausente')->count();
+    }
+
+    public function getTotalJustificadosAttribute(): int
+    {
+        return $this->attendances()->where('status', 'justificado')->count();
     }
 }

@@ -66,4 +66,5 @@ Route::get('/recibo/{id}', function ($id) {
     Route::get('/admin/reportes', ReportManager::class)->name('admin.reportes');
     Route::get('/admin/egresos', ExpenseManager::class)->name('admin.egresos');
     Route::get('/admin/configuracion', SettingsManager::class)->name('admin.settings');
+Route::get('/admin/asistencia', \App\Livewire\Admin\AttendanceManager::class)->name('admin.asistencia');
 });

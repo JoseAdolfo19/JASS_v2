@@ -43,7 +43,7 @@
                             </div>
                         </div>
                     </div>
-
+                    <a href="{{ route('admin.asistencia') }}" class="hover:text-white">Asistencia</a>
                     <a href="{{ route('admin.reportes') }}" class="hover:text-white">Reportes</a>
                     <a href="{{ route('admin.settings') }}" class="hover:text-white">Configuración</a>
                 </div>

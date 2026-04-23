@@ -220,7 +220,7 @@ class AssociateManager extends Component
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->when($this->filterSector, fn($q) => $q->where('sector_id', $this->filterSector))
             ->orderBy('last_name')
-            ->paginate(15);
+            ->paginate(10);
 
         $sectores = Sector::orderBy('name')->get();
 

@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Associate;
+use App\Models\EventAttendance;
 use App\Models\Payment;
 use App\Models\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,6 +13,8 @@ use Livewire\Component;
 class PaymentTable extends Component
 {
     protected $layout = 'layouts.app';
+
+    private const FINE_AMOUNT = 60.00;
 
     // =========================================================================
     // PROPIEDADES
@@ -24,6 +27,8 @@ class PaymentTable extends Component
     public float $montoCobrar       = 10;
     public bool  $aplicarMora       = true;
     public float $totalFinal        = 0;
+    public float $finesPendientes   = 0;
+    public int   $cantidadMultas    = 0;
     public $payments               = [];
 
     // =========================================================================
@@ -99,6 +104,15 @@ class PaymentTable extends Component
 
         $this->resumenDeuda      = ['items' => $deudaAgrupada, 'mora_calculada' => 0];
         $this->mesesSeleccionados = $listaDeuda;
+
+        $this->cantidadMultas = EventAttendance::where('associate_id', $asociadoId)
+            ->where('status', 'ausente')
+            ->where('fine_paid', false)
+            ->whereHas('event', fn($q) => $q->where('lista_cerrada', true))
+            ->count();
+
+        $this->finesPendientes = $this->cantidadMultas * self::FINE_AMOUNT;
+
         $this->actualizarTotal();
     }
 
@@ -119,7 +133,7 @@ class PaymentTable extends Component
         $mora        = $bloquesMora * $montoMora;
 
         $this->resumenDeuda['mora_calculada'] = $mora;
-        $this->totalFinal = $subtotal + ($this->aplicarMora ? $mora : 0);
+        $this->totalFinal = $subtotal + ($this->aplicarMora ? $mora : 0) + $this->finesPendientes;
     }
 
     public function updatedAplicarMora(): void  { $this->actualizarTotal(); }
@@ -141,7 +155,9 @@ class PaymentTable extends Component
 
     public function confirmarPago(): mixed
     {
-        if (empty($this->mesesSeleccionados) || !$this->asociado_id) return null;
+        if (!$this->asociado_id || (empty($this->mesesSeleccionados) && $this->finesPendientes <= 0)) {
+            return null;
+        }
 
         // Generar número correlativo
         $ultimo   = Payment::max('invoice_number');
@@ -152,16 +168,40 @@ class PaymentTable extends Component
             ? ($this->resumenDeuda['mora_calculada'] ?? 0)
             : 0;
 
+        $fineAmount = $this->finesPendientes;
+        $conceptParts = [];
+
+        if (!empty($this->mesesSeleccionados)) {
+            $conceptParts[] = 'PAGO DE MESES: ' . implode(', ', $this->mesesSeleccionados);
+        }
+
+        if ($fineAmount > 0) {
+            $conceptParts[] = 'MULTAS POR FALTA: ' . $this->cantidadMultas . ' x S/ ' . number_format(self::FINE_AMOUNT, 2);
+        }
+
+        $concept = implode(' + ', $conceptParts) ?: 'PAGO DE CUOTA';
+
+        $paymentType = empty($this->mesesSeleccionados) && $fineAmount > 0 ? 'falta' : 'cuota';
+
         // Guardar el pago
         $payment = Payment::create([
             'invoice_number'   => $invoiceNumber,
             'associate_id'     => $this->asociado_id,
             'amount'           => $this->totalFinal,
-            'type'             => 'cuota',
-            'concept'          => 'PAGO DE MESES: ' . implode(', ', $this->mesesSeleccionados),
+            'type'             => $paymentType,
+            'concept'          => $concept,
             'months_paid'      => $this->mesesSeleccionados,
             'late_fee_applied' => $moraAplicada,
+            'fine_amount'      => $fineAmount,
         ]);
+
+        if ($fineAmount > 0) {
+            EventAttendance::where('associate_id', $this->asociado_id)
+                ->where('status', 'ausente')
+                ->where('fine_paid', false)
+                ->whereHas('event', fn($q) => $q->where('lista_cerrada', true))
+                ->update(['fine_paid' => true]);
+        }
 
         // Generar y descargar el recibo PDF
         return $this->generarReciboPDFActual($payment);
@@ -189,6 +229,7 @@ class PaymentTable extends Component
 
         $subtotal     = count($this->mesesSeleccionados) * $this->montoCobrar;
         $moraAplicada = $this->aplicarMora ? ($this->resumenDeuda['mora_calculada'] ?? 0) : 0;
+        $fineAmount   = (float) ($payment->fine_amount ?? 0);
 
         $data = [
             'jass'          => $jass,
@@ -197,6 +238,7 @@ class PaymentTable extends Component
             'meses'         => $meses,
             'subtotal'      => $subtotal,
             'mora'          => $moraAplicada,
+            'fine'          => $fineAmount,
             'total'         => $this->totalFinal,
             'fecha_emision' => now()->format('d/m/Y H:i'),
         ];
@@ -264,13 +306,27 @@ class PaymentTable extends Component
             ];
         });
 
+        $mora   = (float) ($payment->late_fee_applied ?? 0);
+        $fine   = (float) ($payment->fine_amount ?? 0);
+
+        $baseAmount = max((float) $payment->amount - $mora - $fine, 0);
+        $periodos   = max(count($payment->months_paid ?: []), 1);
+        $montoPorMes = round($baseAmount / $periodos, 2);
+
+        $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($montoPorMes) {
+            return [
+                'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
+                'monto'    => $montoPorMes,
+            ];
+        });
+
         $subtotal = round($meses->sum('monto'), 2);
-        $mora     = (float) ($payment->late_fee_applied ?? 0);
 
         return [
             'meses'    => $meses,
             'subtotal' => $subtotal,
             'mora'     => $mora,
+            'fine'     => $fine,
             'total'    => (float) $payment->amount,
         ];
     }
