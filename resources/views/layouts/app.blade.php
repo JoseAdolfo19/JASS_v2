@@ -46,6 +46,12 @@
                     <a href="{{ route('admin.asistencia') }}" class="hover:text-white">Asistencia</a>
                     <a href="{{ route('admin.reportes') }}" class="hover:text-white">Reportes</a>
                     <a href="{{ route('admin.settings') }}" class="hover:text-white">Configuración</a>
+                    <form method="POST" action="{{ route('logout') }}" class="inline">
+                        @csrf
+                        <button type="submit" class="text-zinc-200 hover:text-white transition px-2 py-1 rounded-sm border border-zinc-700 bg-zinc-900/80">
+                            Salir
+                        </button>
+                    </form>
                 </div>
             </div>
         </nav>

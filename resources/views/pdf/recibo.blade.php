@@ -232,7 +232,7 @@
     {{-- ── TOTALES ── --}}
     <div class="totales">
         <div class="fila-total">
-            <span>Subtotal ({{ $meses->count() }} mes{{ $meses->count() > 1 ? 'es' : '' }})</span>
+            <span>Subtotal ({{ count($meses) }} mes{{ count($meses) > 1 ? 'es' : '' }})</span>
             <span>S/ {{ number_format($subtotal, 2) }}</span>
         </div>
         @if($mora > 0)

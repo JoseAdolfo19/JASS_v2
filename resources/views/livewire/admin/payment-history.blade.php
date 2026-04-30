@@ -12,6 +12,7 @@
                     <th class="p-6">Socio</th>
                     <th class="p-6">Monto</th>
                     <th class="p-6">Concepto</th>
+                    <th class="p-6">Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-800">
@@ -21,6 +22,9 @@
                         <td class="p-6 text-white font-bold uppercase text-xs">{{ $pago->associate->last_name }}</td>
                         <td class="p-6 text-green-500 font-black">S/ {{ number_format($pago->amount, 2) }}</td>
                         <td class="p-6 text-zinc-500 text-[10px] uppercase font-bold">{{ $pago->concept }}</td>
+                        <td class="p-6">
+                           2  
+                        </td>
                     </tr>
                 @endforeach
             </tbody>

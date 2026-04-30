@@ -49,9 +49,9 @@ Route::post('/logout', function (Request $request) {
 
 Route::get('/dashboard', function () {
     return redirect()->route('admin.home');
-})->middleware('auth');
+})->middleware(['auth', 'nocache']);
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'nocache'])->group(function () {
     Route::get('/home', Home::class)->name('admin.home');
     Route::get('/sectores', SectorManager::class)->name('admin.sectores');
     Route::get('/asociados', AssociateManager::class)->name('admin.asociados');

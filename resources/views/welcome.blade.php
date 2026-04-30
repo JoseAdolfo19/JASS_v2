@@ -57,12 +57,12 @@
                             placeholder="••••••••">
                     </div>
 
-                    <div class="flex items-center justify-between px-1">
+                    <!-- <div class="flex items-center justify-between px-1">
                         <label class="flex items-center gap-2 cursor-pointer group">
                             <input type="checkbox" name="remember" class="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-blue-600 focus:ring-blue-600 focus:ring-offset-zinc-900">
                             <span class="text-[10px] font-bold text-zinc-500 group-hover:text-zinc-300 uppercase">Recordarme</span>
                         </label>
-                    </div>
+                    </div> -->
 
                     <button type="submit" 
                         class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-blue-900/20 uppercase text-xs tracking-[0.2em] active:scale-95">
