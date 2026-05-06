@@ -81,7 +81,7 @@
             <div class="p-8 bg-zinc-800/30 border border-zinc-800 rounded-[2rem] mt-6">
                 <h4 class="text-white font-black uppercase italic mb-2">Configuración</h4>
                 <p class="text-zinc-500 text-[10px] font-bold leading-relaxed">Ajusta la tarifa mensual y el monto de la mora desde el panel de ajustes.</p>
-                <button class="mt-4 w-full py-3 bg-zinc-800 rounded-xl text-white font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 transition-all">Ir a Ajustes</button>
+                <a href="{{ route('admin.settings') }}" class="mt-4 inline-block px-4 py-2 bg-blue-500 text-white font-bold uppercase rounded-full hover:bg-blue-600 transition-all">Ir a Ajustes</a>
             </div>
         </div>
 
@@ -111,7 +111,7 @@
                     @endforeach
                 </div>
                 <div class="p-4 bg-zinc-800/30 text-center">
-                    <a href="{{ route('admin.historial-pagos') }}" class="text-zinc-500 font-black text-[10px] uppercase hover:text-white transition-all">Ver todo el libro caja</a>
+                    <a href="{{ route('admin.historial-pagos') }}" class="text-zinc-500 font-black text-[10px] uppercase hover:text-white transition-all">Ver todo el Historial de Pagos</a>
                 </div>
             </div>
         </div>

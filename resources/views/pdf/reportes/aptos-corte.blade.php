@@ -39,22 +39,35 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($data as $item)
-            <tr class="urgent">
-                <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                <td>{{ $item['associate']['sector'] }}</td>
-                <td>{{ $item['meses_deuda'] }}</td>
-                <td><strong>APTO PARA CORTE</strong></td>
-            </tr>
-            @endforeach
-
-            @if($data->count() == 0)
+            @php
+                // Agrupar por sector y ordenar alfabéticamente dentro de cada sector
+                $dataGrouped = collect($data)
+                    ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                    ->sortKeys()
+                    ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+            @endphp
+            
+            @forelse($dataGrouped as $sector => $items)
+                {{-- Encabezado de sector --}}
+                <tr style="background-color: #e5e7eb; font-weight: bold;">
+                    <td colspan="4">SECTOR: {{ $sector }}</td>
+                </tr>
+                
+                @foreach($items as $item)
+                <tr class="urgent">
+                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                    <td>{{ $item['associate']['sector'] }}</td>
+                    <td>{{ $item['meses_deuda'] }}</td>
+                    <td><strong>APTO PARA CORTE</strong></td>
+                </tr>
+                @endforeach
+            @empty
             <tr>
                 <td colspan="4" style="text-align: center; color: #10b981; background-color: #f0fdf4;">
                     <strong>¡Excelente!</strong> No hay socios aptos para corte en este momento.
                 </td>
             </tr>
-            @endif
+            @endforelse
         </tbody>
     </table>
 

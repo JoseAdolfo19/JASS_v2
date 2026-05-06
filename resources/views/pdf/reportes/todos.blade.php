@@ -80,13 +80,25 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($data['morosos'] as $item)
-                <tr>
-                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                    <td>{{ $item['associate']['sector'] }}</td>
-                    <td>{{ $item['meses_deuda'] }}</td>
-                    <td>S/ {{ number_format($item['total'], 2) }}</td>
-                </tr>
+                @php
+                    $morososGrouped = collect($data['morosos'])
+                        ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                        ->sortKeys()
+                        ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+                @endphp
+                
+                @foreach($morososGrouped as $sector => $items)
+                    <tr style="background-color: #e5e7eb; font-weight: bold;">
+                        <td colspan="4">SECTOR: {{ $sector }}</td>
+                    </tr>
+                    @foreach($items as $item)
+                    <tr>
+                        <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                        <td>{{ $item['associate']['sector'] }}</td>
+                        <td>{{ $item['meses_deuda'] }}</td>
+                        <td>S/ {{ number_format($item['total'], 2) }}</td>
+                    </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>
@@ -105,13 +117,25 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($data['multas'] as $item)
-                <tr>
-                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                    <td>{{ $item['associate']['sector'] }}</td>
-                    <td>{{ $item['cantidad_multas'] }}</td>
-                    <td>S/ {{ number_format($item['total_multas'], 2) }}</td>
-                </tr>
+                @php
+                    $multasGrouped = collect($data['multas'])
+                        ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                        ->sortKeys()
+                        ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+                @endphp
+                
+                @foreach($multasGrouped as $sector => $items)
+                    <tr style="background-color: #e5e7eb; font-weight: bold;">
+                        <td colspan="4">SECTOR: {{ $sector }}</td>
+                    </tr>
+                    @foreach($items as $item)
+                    <tr>
+                        <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                        <td>{{ $item['associate']['sector'] }}</td>
+                        <td>{{ $item['cantidad_multas'] }}</td>
+                        <td>S/ {{ number_format($item['total_multas'], 2) }}</td>
+                    </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>
@@ -128,12 +152,24 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($data['aptosCorte'] as $item)
-                <tr>
-                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                    <td>{{ $item['associate']['sector'] }}</td>
-                    <td>{{ $item['meses_deuda'] }}</td>
-                </tr>
+                @php
+                    $aptosGrouped = collect($data['aptosCorte'])
+                        ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                        ->sortKeys()
+                        ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+                @endphp
+                
+                @foreach($aptosGrouped as $sector => $items)
+                    <tr style="background-color: #e5e7eb; font-weight: bold;">
+                        <td colspan="3">SECTOR: {{ $sector }}</td>
+                    </tr>
+                    @foreach($items as $item)
+                    <tr>
+                        <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                        <td>{{ $item['associate']['sector'] }}</td>
+                        <td>{{ $item['meses_deuda'] }}</td>
+                    </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>

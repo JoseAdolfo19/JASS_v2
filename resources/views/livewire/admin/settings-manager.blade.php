@@ -21,7 +21,7 @@
             <div class="rounded-[2rem] border border-zinc-800 bg-zinc-900/80 p-5 shadow-xl">
                 <div class="text-zinc-400 text-[10px] uppercase font-bold tracking-[.18em] mb-3">Mora</div>
                 <div class="text-white text-3xl font-black">S/ {{ number_format((float)$mora_monto, 2) }}</div>
-                <p class="text-zinc-500 text-xs mt-2">Se aplica cada {{ $mora_meses }} meses sin pago.</p>
+                <p class="text-white text-3xl font-black">Se aplica cada {{ $mora_meses }} meses sin pago.</p>
             </div>
         </div>
     </div>

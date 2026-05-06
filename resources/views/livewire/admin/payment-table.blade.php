@@ -9,6 +9,44 @@
     <div class="bg-zinc-900 border border-zinc-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-8">
         <input type="text" wire:model.live="search" placeholder="Buscar socio..." class="w-full bg-zinc-800 border-none rounded-2xl py-4 px-6 text-white mb-6 focus:ring-2 focus:ring-blue-600 font-bold">
 
+        @if(!$resumenDeuda)
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-gradient-to-br from-blue-900/20 to-blue-900/5 border border-blue-500/20 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <h4 class="text-blue-400 font-black uppercase text-xs tracking-widest">Cómo usar</h4>
+                    </div>
+                    <ol class="space-y-2 text-zinc-400 text-[12px] leading-relaxed">
+                        <li><span class="text-blue-400 font-bold">1.</span> Escribe el nombre del socio en el buscador</li>
+                        <li><span class="text-blue-400 font-bold">2.</span> Selecciona de la lista de resultados</li>
+                        <li><span class="text-blue-400 font-bold">3.</span> Marca los meses a cobrar</li>
+                        <li><span class="text-blue-400 font-bold">4.</span> Confirma el monto y cobra</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-900/20 to-green-900/5 border border-green-500/20 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <h4 class="text-green-400 font-black uppercase text-xs tracking-widest">Sistema Activo</h4>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-zinc-500 text-[11px]">Estado</span>
+                            <span class="text-green-400 font-bold text-[11px]">● En línea</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-500 text-[11px]">Socios registrados</span>
+                            <span class="text-white font-black text-[11px]">{{ $totalAssociates ?? 0 }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-500 text-[11px]">Conexión</span>
+                            <span class="text-green-400 font-bold text-[11px]">Sincronizada</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         @if(!empty($associates))
             <div class="mb-6 space-y-2">
                 @foreach($associates as $socio)

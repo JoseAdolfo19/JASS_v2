@@ -243,7 +243,7 @@
         @endif
         @if(!empty($fine) && $fine > 0)
         <div class="fila-total mora">
-            <span>Multas por falta</span>
+            <span>Multas por falta en asambleas o faenas</span>
             <span>S/ {{ number_format($fine, 2) }}</span>
         </div>
         @endif

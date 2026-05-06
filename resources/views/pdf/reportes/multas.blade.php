@@ -33,22 +33,38 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($data as $item)
-            <tr>
-                <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                <td>{{ $item['associate']['sector'] }}</td>
-                <td>{{ $item['cantidad_multas'] }}</td>
-                <td><strong>S/ {{ number_format($item['total_multas'], 2) }}</strong></td>
-            </tr>
-            @endforeach
+            @php
+                // Agrupar por sector y ordenar alfabéticamente dentro de cada sector
+                $dataGrouped = collect($data)
+                    ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                    ->sortKeys()
+                    ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+            @endphp
+            
+            @forelse($dataGrouped as $sector => $items)
+                {{-- Encabezado de sector --}}
+                <tr style="background-color: #e5e7eb; font-weight: bold;">
+                    <td colspan="4">SECTOR: {{ $sector }}</td>
+                </tr>
+                
+                @foreach($items as $item)
+                <tr>
+                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                    <td>{{ $item['associate']['sector'] }}</td>
+                    <td>{{ $item['cantidad_multas'] }}</td>
+                    <td><strong>S/ {{ number_format($item['total_multas'], 2) }}</strong></td>
+                </tr>
+                @endforeach
+            @empty
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #666;">No hay multas registradas</td>
+                </tr>
+            @endforelse
+            
             @if(count($data) > 0)
             <tr class="total-row">
                 <td colspan="3"><strong>TOTAL GENERAL</strong></td>
                 <td><strong>S/ {{ number_format($data->sum('total_multas'), 2) }}</strong></td>
-            </tr>
-            @else
-            <tr>
-                <td colspan="4" style="text-align: center; color: #666;">No hay multas registradas</td>
             </tr>
             @endif
         </tbody>

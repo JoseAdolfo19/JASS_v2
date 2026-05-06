@@ -47,16 +47,32 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($data as $item)
-            <tr>
-                <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
-                <td>{{ $item['associate']['sector'] }}</td>
-                <td>{{ $item['meses_deuda'] }}</td>
-                <td>S/ {{ number_format($item['subtotal'], 2) }}</td>
-                <td>S/ {{ number_format($item['mora'], 2) }}</td>
-                <td><strong>S/ {{ number_format($item['total'], 2) }}</strong></td>
-            </tr>
+            @php
+                // Agrupar por sector y ordenar alfabéticamente dentro de cada sector
+                $dataGrouped = collect($data)
+                    ->groupBy(fn($item) => $item['associate']['sector'] ?? 'Sin Sector')
+                    ->sortKeys()
+                    ->map(fn($items) => $items->sortBy(fn($item) => $item['associate']['last_name'] . ', ' . $item['associate']['name']));
+            @endphp
+            
+            @foreach($dataGrouped as $sector => $items)
+                {{-- Encabezado de sector --}}
+                <tr style="background-color: #e5e7eb; font-weight: bold;">
+                    <td colspan="6">SECTOR: {{ $sector }}</td>
+                </tr>
+                
+                @foreach($items as $item)
+                <tr>
+                    <td>{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</td>
+                    <td>{{ $item['associate']['sector'] }}</td>
+                    <td>{{ $item['meses_deuda'] }}</td>
+                    <td>S/ {{ number_format($item['subtotal'], 2) }}</td>
+                    <td>S/ {{ number_format($item['mora'], 2) }}</td>
+                    <td><strong>S/ {{ number_format($item['total'], 2) }}</strong></td>
+                </tr>
+                @endforeach
             @endforeach
+            
             <tr class="total-row">
                 <td colspan="3"><strong>TOTAL GENERAL</strong></td>
                 <td><strong>S/ {{ number_format($data->sum('subtotal'), 2) }}</strong></td>

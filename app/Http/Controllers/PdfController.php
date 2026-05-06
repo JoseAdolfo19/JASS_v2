@@ -13,6 +13,7 @@ class PdfController extends Controller
     {
         $payment = Payment::with('associate')->findOrFail($id);
         $asociado = $payment->associate;
+        
         $jass = [
             'nombre'     => Setting::get('jass_nombre', 'JASS'),
             'direccion'  => Setting::get('jass_direccion', ''),
@@ -25,9 +26,32 @@ class PdfController extends Controller
         $meses = [];
         if ($payment->months_paid && is_array($payment->months_paid)) {
             foreach ($payment->months_paid as $monthData) {
-                if (is_array($monthData)) {
+                if (is_string($monthData)) {
+                    // Si es string como "2025-08", convertir a etiqueta legible
+                    if (preg_match('/^(\d{4})-(\d{2})$/', $monthData, $matches)) {
+                        $year = $matches[1];
+                        $month = intval($matches[2]);
+                        $monthNames = [
+                            1 => 'ENE', 2 => 'FEB', 3 => 'MAR', 4 => 'ABR',
+                            5 => 'MAY', 6 => 'JUN', 7 => 'JUL', 8 => 'AGO',
+                            9 => 'SEP', 10 => 'OCT', 11 => 'NOV', 12 => 'DIC'
+                        ];
+                        $etiqueta = ($monthNames[$month] ?? 'MES') . ' ' . $year;
+                        $meses[] = [
+                            'etiqueta' => $etiqueta,
+                            'monto' => 0,
+                        ];
+                    } else {
+                        // Si no es formato YYYY-MM, usar como está
+                        $meses[] = [
+                            'etiqueta' => $monthData,
+                            'monto' => 0,
+                        ];
+                    }
+                } elseif (is_array($monthData)) {
+                    // Si es array, usar los datos
                     $meses[] = [
-                        'etiqueta' => $monthData['name'] ?? $monthData['month'] ?? 'Concepto',
+                        'etiqueta' => $monthData['name'] ?? $monthData['month'] ?? $monthData['etiqueta'] ?? 'Concepto',
                         'monto' => $monthData['amount'] ?? 0,
                     ];
                 }
@@ -42,7 +66,7 @@ class PdfController extends Controller
         $pdf = Pdf::loadView('pdf.recibo', compact('payment', 'asociado', 'jass', 'fecha_emision', 'meses', 'subtotal', 'mora', 'fine', 'total'));
         $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
         $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-        $pdf->setPaper('a4', 'portrait');
+        $pdf->setPaper('a5', 'portrait');
 
         return $pdf->stream('recibo-'.$id.'.pdf');
     }

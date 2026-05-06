@@ -2,16 +2,51 @@ services:
   - type: web
     name: jass
     env: php
+    plan: free
+
     buildCommand: |
       composer install --no-dev --optimize-autoloader
       php artisan key:generate
+      php artisan config:clear
       php artisan config:cache
       php artisan route:cache
       php artisan view:cache
+      npm install
+      npm run build
+
     startCommand: |
       php -S 0.0.0.0:10000 -t public
+
     envVars:
       - key: APP_ENV
         value: production
+
       - key: APP_KEY
-        sync: false
+        value: base64:R3WXz48i3TNauCClBGSMs+YyhfSnq0tOEd1zpeh+b6g=
+
+      - key: APP_URL
+        value: https://jass-v2.onrender.com
+
+      - key: LOG_CHANNEL
+        value: stderr
+
+      - key: SESSION_DRIVER
+        value: cookie
+        
+      - key: DB_CONNECTION
+        value: mysql
+
+      - key: DB_HOST
+        value: tu_host
+
+      - key: DB_PORT
+        value: 3306
+
+      - key: DB_DATABASE
+        value: jass_db
+
+      - key: DB_USERNAME
+        value: root
+
+      - key: DB_PASSWORD
+        value: 
