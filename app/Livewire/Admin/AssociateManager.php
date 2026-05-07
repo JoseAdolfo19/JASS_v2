@@ -4,8 +4,10 @@ namespace App\Livewire\Admin;
 
 use App\Models\Associate;
 use App\Models\Sector;
+use App\Exports\AssociatesExport;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AssociateManager extends Component
 {
@@ -18,6 +20,11 @@ class AssociateManager extends Component
     public string $search         = '';
     public string $filterStatus   = '';   // '' | 'activo' | 'suspendido'
     public string $filterSector   = '';   // ID del sector o ''
+    public string $sortBy         = 'last_name';   // Campo para ordenar
+    public string $sortDirection  = 'asc';         // 'asc' | 'desc'
+    public string $filterDateFrom = '';            // Fecha mínima de ingreso
+    public string $filterDateTo   = '';            // Fecha máxima de ingreso
+    public int    $perPage        = 15;            // Registros por página
 
     // =========================================================================
     // CONTROL DE UI
@@ -78,6 +85,27 @@ class AssociateManager extends Component
     public function updatedSearch(): void        { $this->resetPage(); }
     public function updatedFilterStatus(): void  { $this->resetPage(); }
     public function updatedFilterSector(): void  { $this->resetPage(); }
+    public function updatedFilterDateFrom(): void { $this->resetPage(); }
+    public function updatedFilterDateTo(): void  { $this->resetPage(); }
+    public function updatedSortBy(): void        { $this->resetPage(); }
+    public function updatedSortDirection(): void { $this->resetPage(); }
+    public function updatedPerPage(): void       { $this->resetPage(); }
+
+    // =========================================================================
+    // ORDENAMIENTO
+    // =========================================================================
+
+    public function sortBy(string $column): void
+    {
+        if ($this->sortBy === $column) {
+            // Si ya está ordenado por esta columna, cambiar dirección
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Si es una columna nueva, ordenar ascendente
+            $this->sortBy = $column;
+            $this->sortDirection = 'asc';
+        }
+    }
 
     // =========================================================================
     // ACCIONES DEL MODAL
@@ -203,6 +231,41 @@ class AssociateManager extends Component
     }
 
     // =========================================================================
+    // LIMPIAR FILTROS
+    // =========================================================================
+
+    public function resetFilters(): void
+    {
+        $this->search         = '';
+        $this->filterStatus   = '';
+        $this->filterSector   = '';
+        $this->filterDateFrom = '';
+        $this->filterDateTo   = '';
+        $this->resetPage();
+    }
+
+    // =========================================================================
+    // EXPORTAR A EXCEL
+    // =========================================================================
+
+    public function exportToExcel()
+    {
+        $timestamp = now()->format('Y-m-d_H-i-s');
+        $filename = "padron-socios_{$timestamp}.xlsx";
+
+        return Excel::download(
+            new AssociatesExport(
+                $this->search,
+                $this->filterStatus,
+                $this->filterSector,
+                $this->filterDateFrom,
+                $this->filterDateTo,
+            ),
+            $filename
+        );
+    }
+
+    // =========================================================================
     // RENDER
     // =========================================================================
 
@@ -219,8 +282,10 @@ class AssociateManager extends Component
             )
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->when($this->filterSector, fn($q) => $q->where('sector_id', $this->filterSector))
-            ->orderBy('last_name')
-            ->paginate(10);
+            ->when($this->filterDateFrom, fn($q) => $q->whereDate('entry_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn($q) => $q->whereDate('entry_date', '<=', $this->filterDateTo))
+            ->orderBy($this->sortBy, $this->sortDirection)
+            ->paginate($this->perPage);
 
         $sectores = Sector::orderBy('name')->get();
 

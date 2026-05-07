@@ -1,8 +1,5 @@
 <div class="max-w-7xl mx-auto py-8 px-4">
     <div class="flex flex-col lg:flex-row gap-8">
-        
-        
-
         {{-- SECCIONES DE REPORTES --}}
         <div class="w-full lg:w-2/3 space-y-8">
 

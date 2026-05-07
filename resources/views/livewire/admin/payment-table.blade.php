@@ -35,10 +35,6 @@
                             <span class="text-green-400 font-bold text-[11px]">● En línea</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-zinc-500 text-[11px]">Socios registrados</span>
-                            <span class="text-white font-black text-[11px]">{{ $totalAssociates ?? 0 }}</span>
-                        </div>
-                        <div class="flex justify-between">
                             <span class="text-zinc-500 text-[11px]">Conexión</span>
                             <span class="text-green-400 font-bold text-[11px]">Sincronizada</span>
                         </div>

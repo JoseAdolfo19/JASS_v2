@@ -270,11 +270,11 @@
                     <input wire:model.live="search" type="text"
                         placeholder="Buscar por nombre, apellido o DNI..."
                         class="w-full bg-zinc-900 border border-zinc-700 text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500" />
-                    @if(!empty($associates))
+                    @if(!empty($socios))
                     <div class="mb-6 space-y-2">
-                        @foreach($associates as $socio)
-                        <button wire:click="seleccionarSocio({{ $socio->id }})" class="w-full text-left p-4 bg-zinc-800/50 hover:bg-blue-600/20 rounded-xl border border-zinc-700 transition-all uppercase font-black text-white text-xs">
-                            {{ $socio->last_name }}, {{ $socio->name }}
+                        @foreach($socios as $socio)
+                        <button wire:click="toggleAsistencia({{ $socio->id }})" class="w-full text-left p-4 bg-zinc-800/50 hover:bg-blue-600/20 rounded-xl border border-zinc-700 transition-all uppercase font-black text-white text-xs">
+                            {{ $socio->last_name }}, {{ $socio->name }} - DNI {{ $socio->dni }}
                         </button>
                         @endforeach
                     </div>
