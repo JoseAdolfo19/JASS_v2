@@ -21,54 +21,66 @@ class PdfController extends Controller
             'tesorero'   => Setting::get('jass_tesorero', ''),
         ];
         $fecha_emision = $payment->created_at->format('d/m/Y H:i');
-        
-        // Procesar meses pagados
+
+        $monthNames = [
+            1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO', 4 => 'ABRIL',
+            5 => 'MAYO', 6 => 'JUNIO', 7 => 'JULIO', 8 => 'AGOSTO',
+            9 => 'SETIEMBRE', 10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
+        ];
+
+        // Procesar meses pagados y generar texto legible
         $meses = [];
+        $meses_text = [];
         if ($payment->months_paid && is_array($payment->months_paid)) {
             foreach ($payment->months_paid as $monthData) {
                 if (is_string($monthData)) {
-                    // Si es string como "2025-08", convertir a etiqueta legible
                     if (preg_match('/^(\d{4})-(\d{2})$/', $monthData, $matches)) {
                         $year = $matches[1];
                         $month = intval($matches[2]);
-                        $monthNames = [
-                            1 => 'ENE', 2 => 'FEB', 3 => 'MAR', 4 => 'ABR',
-                            5 => 'MAY', 6 => 'JUN', 7 => 'JUL', 8 => 'AGO',
-                            9 => 'SEP', 10 => 'OCT', 11 => 'NOV', 12 => 'DIC'
-                        ];
-                        $etiqueta = ($monthNames[$month] ?? 'MES') . ' ' . $year;
-                        $meses[] = [
-                            'etiqueta' => $etiqueta,
-                            'monto' => 0,
-                        ];
+                        $label = ($monthNames[$month] ?? 'MES') . ' ' . $year;
+                        $meses[] = ['etiqueta' => $label, 'monto' => 0];
+                        $meses_text[] = $label;
                     } else {
-                        // Si no es formato YYYY-MM, usar como está
-                        $meses[] = [
-                            'etiqueta' => $monthData,
-                            'monto' => 0,
-                        ];
+                        $meses[] = ['etiqueta' => $monthData, 'monto' => 0];
+                        $meses_text[] = strtoupper($monthData);
                     }
                 } elseif (is_array($monthData)) {
-                    // Si es array, usar los datos
-                    $meses[] = [
-                        'etiqueta' => $monthData['name'] ?? $monthData['month'] ?? $monthData['etiqueta'] ?? 'Concepto',
-                        'monto' => $monthData['amount'] ?? 0,
-                    ];
+                    $label = $monthData['name'] ?? $monthData['month'] ?? $monthData['etiqueta'] ?? 'Concepto';
+                    $meses[] = ['etiqueta' => $label, 'monto' => $monthData['amount'] ?? 0];
+                    $meses_text[] = strtoupper($label);
                 }
             }
         }
-        
+
+        $meses_text = implode(', ', $meses_text);
         $subtotal = array_sum(array_column($meses, 'monto'));
         $mora = $payment->late_fee_applied ?? 0;
         $fine = $payment->fine_amount ?? 0;
         $total = $payment->amount;
+        $fecha_recibo = $payment->created_at->format('d') . ' de ' . ($monthNames[$payment->created_at->month] ?? '') . ' del ' . $payment->created_at->year;
+        $monto_en_letras = $this->numeroALetras($payment->amount);
 
-        $pdf = Pdf::loadView('pdf.recibo', compact('payment', 'asociado', 'jass', 'fecha_emision', 'meses', 'subtotal', 'mora', 'fine', 'total'));
+        $pdf = Pdf::loadView('pdf.recibo', compact('payment', 'asociado', 'jass', 'fecha_emision', 'meses', 'subtotal', 'mora', 'fine', 'total', 'meses_text', 'fecha_recibo', 'monto_en_letras'));
         $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
         $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-        $pdf->setPaper('a5', 'portrait');
+        $pdf->setPaper('a4', 'landscape');
 
         return $pdf->stream('recibo-'.$id.'.pdf');
+    }
+
+    private function numeroALetras(float $numero): string
+    {
+        $entero = floor($numero);
+        $decimales = round(($numero - $entero) * 100);
+        
+        try {
+            $formatter = new \NumberFormatter('es', \NumberFormatter::SPELLOUT);
+            $texto = mb_strtoupper($formatter->format($entero));
+        } catch (\Throwable $e) {
+            $texto = strtoupper(number_format($entero, 0, ',', '.'));
+        }
+
+        return trim($texto) . ' CON ' . str_pad($decimales, 2, '0', STR_PAD_LEFT) . '/100 SOLES';
     }
 
     public function egreso(int $id)

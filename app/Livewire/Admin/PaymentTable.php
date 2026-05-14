@@ -3,7 +3,6 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Associate;
-use App\Models\EventAttendance;
 use App\Models\Payment;
 use App\Models\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -14,22 +13,20 @@ class PaymentTable extends Component
 {
     protected $layout = 'layouts.app';
 
-    private const FINE_AMOUNT = 60.00;
-
     // =========================================================================
     // PROPIEDADES
     // =========================================================================
 
     public $asociado_id;
-    public string $search           = '';
-    public $resumenDeuda            = null;
+    public string $search            = '';
+    public $resumenDeuda             = null;
     public array $mesesSeleccionados = [];
-    public float $montoCobrar       = 10;
-    public bool  $aplicarMora       = true;
-    public float $totalFinal        = 0;
-    public float $finesPendientes   = 0;
-    public int   $cantidadMultas    = 0;
-    public $payments               = [];
+    public float $montoCobrar        = 10;
+    public bool  $aplicarMora        = true;
+    public float $totalFinal         = 0;
+    public int   $cantidadMultas     = 0;
+    public float $finesPendientes    = 0;
+    public $payments                 = [];
 
     // =========================================================================
     // CICLO DE VIDA
@@ -37,7 +34,6 @@ class PaymentTable extends Component
 
     public function mount(): void
     {
-        // Leer cuota desde Settings para no tener valores fijos
         $this->montoCobrar = (float) Setting::get('cuota_mensual', 10);
     }
 
@@ -66,7 +62,9 @@ class PaymentTable extends Component
         $asociado = Associate::find($asociadoId);
         if (!$asociado) return;
 
+        // Solo pagos de tipo cuota (no multas)
         $this->payments = Payment::where('associate_id', $asociadoId)
+            ->where('type', '!=', 'falta')
             ->latest()
             ->get();
 
@@ -105,14 +103,6 @@ class PaymentTable extends Component
         $this->resumenDeuda      = ['items' => $deudaAgrupada, 'mora_calculada' => 0];
         $this->mesesSeleccionados = $listaDeuda;
 
-        $this->cantidadMultas = EventAttendance::where('associate_id', $asociadoId)
-            ->where('status', 'ausente')
-            ->where('fine_paid', false)
-            ->whereHas('event', fn($q) => $q->where('lista_cerrada', true))
-            ->count();
-
-        $this->finesPendientes = $this->cantidadMultas * self::FINE_AMOUNT;
-
         $this->actualizarTotal();
     }
 
@@ -124,8 +114,8 @@ class PaymentTable extends Component
     {
         if (!$this->resumenDeuda) return;
 
-        $cantidad    = count($this->mesesSeleccionados);
-        $subtotal    = $cantidad * $this->montoCobrar;
+        $cantidad  = count($this->mesesSeleccionados);
+        $subtotal  = $cantidad * $this->montoCobrar;
 
         $montoMora   = (float) Setting::get('mora_monto', 60);
         $mesesMora   = (int)   Setting::get('mora_meses', 3);
@@ -133,11 +123,11 @@ class PaymentTable extends Component
         $mora        = $bloquesMora * $montoMora;
 
         $this->resumenDeuda['mora_calculada'] = $mora;
-        $this->totalFinal = $subtotal + ($this->aplicarMora ? $mora : 0) + $this->finesPendientes;
+        $this->totalFinal = $subtotal + ($this->aplicarMora ? $mora : 0);
     }
 
-    public function updatedAplicarMora(): void  { $this->actualizarTotal(); }
-    public function updatedMontoCobrar(): void  { $this->actualizarTotal(); }
+    public function updatedAplicarMora(): void { $this->actualizarTotal(); }
+    public function updatedMontoCobrar(): void { $this->actualizarTotal(); }
 
     public function toggleMes(string $mes): void
     {
@@ -155,55 +145,31 @@ class PaymentTable extends Component
 
     public function confirmarPago(): mixed
     {
-        if (!$this->asociado_id || (empty($this->mesesSeleccionados) && $this->finesPendientes <= 0)) {
+        if (!$this->asociado_id || empty($this->mesesSeleccionados)) {
             return null;
         }
 
-        // Generar número correlativo
-        $ultimo   = Payment::max('invoice_number');
-        $nuevoNro = $ultimo ? intval($ultimo) + 1 : 1;
+        $ultimo        = Payment::max('invoice_number');
+        $nuevoNro      = $ultimo ? intval($ultimo) + 1 : 1;
         $invoiceNumber = str_pad($nuevoNro, 6, '0', STR_PAD_LEFT);
 
         $moraAplicada = $this->aplicarMora
             ? ($this->resumenDeuda['mora_calculada'] ?? 0)
             : 0;
 
-        $fineAmount = $this->finesPendientes;
-        $conceptParts = [];
+        $concept = 'PAGO DE MESES: ' . implode(', ', $this->mesesSeleccionados);
 
-        if (!empty($this->mesesSeleccionados)) {
-            $conceptParts[] = 'PAGO DE MESES: ' . implode(', ', $this->mesesSeleccionados);
-        }
-
-        if ($fineAmount > 0) {
-            $conceptParts[] = 'MULTAS POR FALTA: ' . $this->cantidadMultas . ' x S/ ' . number_format(self::FINE_AMOUNT, 2);
-        }
-
-        $concept = implode(' + ', $conceptParts) ?: 'PAGO DE CUOTA';
-
-        $paymentType = empty($this->mesesSeleccionados) && $fineAmount > 0 ? 'falta' : 'cuota';
-
-        // Guardar el pago
         $payment = Payment::create([
             'invoice_number'   => $invoiceNumber,
             'associate_id'     => $this->asociado_id,
             'amount'           => $this->totalFinal,
-            'type'             => $paymentType,
+            'type'             => 'cuota',
             'concept'          => $concept,
             'months_paid'      => $this->mesesSeleccionados,
             'late_fee_applied' => $moraAplicada,
-            'fine_amount'      => $fineAmount,
+            'fine_amount'      => 0,
         ]);
 
-        if ($fineAmount > 0) {
-            EventAttendance::where('associate_id', $this->asociado_id)
-                ->where('status', 'ausente')
-                ->where('fine_paid', false)
-                ->whereHas('event', fn($q) => $q->where('lista_cerrada', true))
-                ->update(['fine_paid' => true]);
-        }
-
-        // Generar y descargar el recibo PDF
         return $this->generarReciboPDFActual($payment);
     }
 
@@ -211,7 +177,6 @@ class PaymentTable extends Component
     {
         $asociado = Associate::with('sector')->find($this->asociado_id);
 
-        // Datos de la JASS desde Settings
         $jass = [
             'nombre'     => Setting::get('jass_nombre', 'JASS'),
             'direccion'  => Setting::get('jass_direccion', ''),
@@ -219,7 +184,6 @@ class PaymentTable extends Component
             'tesorero'   => Setting::get('jass_tesorero', ''),
         ];
 
-        // Construir desglose de meses para el recibo
         $meses = collect($this->mesesSeleccionados)->map(function ($mes) {
             return [
                 'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
@@ -229,7 +193,10 @@ class PaymentTable extends Component
 
         $subtotal     = count($this->mesesSeleccionados) * $this->montoCobrar;
         $moraAplicada = $this->aplicarMora ? ($this->resumenDeuda['mora_calculada'] ?? 0) : 0;
-        $fineAmount   = (float) ($payment->fine_amount ?? 0);
+
+        $meses_text = $meses->pluck('etiqueta')->implode(', ');
+        $monto_en_letras = $this->numeroALetras($this->totalFinal);
+        $fecha_recibo = now()->format('d \d\e F \d\e Y');
 
         $data = [
             'jass'          => $jass,
@@ -238,16 +205,19 @@ class PaymentTable extends Component
             'meses'         => $meses,
             'subtotal'      => $subtotal,
             'mora'          => $moraAplicada,
-            'fine'          => $fineAmount,
+            'fine'          => 0,
             'total'         => $this->totalFinal,
             'fecha_emision' => now()->format('d/m/Y H:i'),
+            'multasDetalle' => [],
+            'meses_text'    => $meses_text,
+            'fecha_recibo'  => $fecha_recibo,
+            'monto_en_letras' => $monto_en_letras,
         ];
 
         return response()->streamDownload(function () use ($data) {
             $pdf = Pdf::loadView('pdf.recibo', $data);
             $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
             $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            // Tamaño ticket 80mm
             $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
             echo $pdf->output();
         }, 'recibo-' . $payment->invoice_number . '.pdf');
@@ -276,18 +246,25 @@ class PaymentTable extends Component
             'tesorero'   => Setting::get('jass_tesorero', ''),
         ];
 
+        $meses_text = $receiptData['meses']->pluck('etiqueta')->implode(', ');
+        $monto_en_letras = $this->numeroALetras((float) $payment->amount);
+        $fecha_recibo = now()->format('d \d\e F \d\e Y');
+
         $data = array_merge($receiptData, [
             'jass'          => $jass,
             'asociado'      => $asociado,
             'payment'       => $payment,
             'fecha_emision' => now()->format('d/m/Y H:i'),
+            'multasDetalle' => [],
+            'meses_text'    => $meses_text,
+            'fecha_recibo'  => $fecha_recibo,
+            'monto_en_letras' => $monto_en_letras,
         ]);
 
         return response()->streamDownload(function () use ($data) {
             $pdf = Pdf::loadView('pdf.recibo', $data);
             $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
             $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            // Tamaño ticket 80mm
             $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
             echo $pdf->output();
         }, 'recibo-' . $payment->invoice_number . '.pdf');
@@ -295,22 +272,10 @@ class PaymentTable extends Component
 
     private function buildReceiptData(Payment $payment): array
     {
-        $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($payment) {
-            $baseAmount = max((float) $payment->amount - (float) ($payment->late_fee_applied ?? 0), 0);
-            $periodos   = max(count($payment->months_paid ?: []), 1);
-            $montoPorMes = round($baseAmount / $periodos, 2);
-
-            return [
-                'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
-                'monto'    => $montoPorMes,
-            ];
-        });
-
-        $mora   = (float) ($payment->late_fee_applied ?? 0);
-        $fine   = (float) ($payment->fine_amount ?? 0);
-
-        $baseAmount = max((float) $payment->amount - $mora - $fine, 0);
-        $periodos   = max(count($payment->months_paid ?: []), 1);
+        $mora        = (float) ($payment->late_fee_applied ?? 0);
+        $fine        = (float) ($payment->fine_amount ?? 0);
+        $baseAmount  = max((float) $payment->amount - $mora - $fine, 0);
+        $periodos    = max(count($payment->months_paid ?: []), 1);
         $montoPorMes = round($baseAmount / $periodos, 2);
 
         $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($montoPorMes) {
@@ -320,15 +285,31 @@ class PaymentTable extends Component
             ];
         });
 
-        $subtotal = round($meses->sum('monto'), 2);
-
         return [
-            'meses'    => $meses,
-            'subtotal' => $subtotal,
-            'mora'     => $mora,
-            'fine'     => $fine,
-            'total'    => (float) $payment->amount,
+            'meses'            => $meses,
+            'subtotal'         => round($meses->sum('monto'), 2),
+            'mora'             => $mora,
+            'fine'             => $fine,
+            'total'            => (float) $payment->amount,
+            'meses_text'       => $meses->pluck('etiqueta')->implode(', '),
+            'fecha_recibo'     => now()->format('d \d\e F \d\e Y'),
+            'monto_en_letras'  => $this->numeroALetras((float) $payment->amount),
         ];
+    }
+
+    private function numeroALetras(float $numero): string
+    {
+        $entero = floor($numero);
+        $decimales = round(($numero - $entero) * 100);
+
+        try {
+            $formatter = new \NumberFormatter('es', \NumberFormatter::SPELLOUT);
+            $texto = mb_strtoupper($formatter->format($entero));
+        } catch (\Throwable $e) {
+            $texto = strtoupper(number_format($entero, 0, ',', '.'));
+        }
+
+        return trim($texto) . ' CON ' . str_pad($decimales, 2, '0', STR_PAD_LEFT) . '/100 SOLES';
     }
 
     // =========================================================================

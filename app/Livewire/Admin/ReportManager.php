@@ -3,11 +3,15 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Associate;
+use App\Models\ExtraordinaryPayment;
+use App\Models\ExtraordinaryPaymentType;
 use App\Models\Payment;
 use App\Models\Sector;
+use App\Models\Setting;
 use App\Services\ReportService;
 use App\Services\PdfExportService;
 use App\Models\Event;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -35,6 +39,9 @@ class ReportManager extends Component
     public $multa_tipo;
     public $otros_concepto;
 
+    // Filtro cuotas extraordinarias
+    public $filtroTipoCuotaId = null;
+
     // =========================================================================
     // CICLO DE VIDA
     // =========================================================================
@@ -55,7 +62,7 @@ class ReportManager extends Component
     }
 
     // =========================================================================
-    // PROPIEDADES COMPUTADAS (deuda del socio seleccionado)
+    // PROPIEDADES COMPUTADAS
     // =========================================================================
 
     public function getMesesDeudaProperty(): int
@@ -122,9 +129,6 @@ class ReportManager extends Component
     // HELPERS PRIVADOS
     // =========================================================================
 
-    /**
-     * Calcula los meses de deuda de un asociado desde su fecha de ingreso.
-     */
     private function calcularMesesDeuda(Associate $associate): int
     {
         $fechaInicio = $associate->entry_date
@@ -138,49 +142,88 @@ class ReportManager extends Component
     // DATOS PARA REPORTES
     // =========================================================================
 
-    /**
-     * 1. Padrón General de Morosos
-     * Socios sin pagos en los últimos 2 meses.
-     */
     public function getMorososData(): Collection
     {
         return $this->reportService()->getMorososData();
     }
 
-    /**
-     * 2. Balance de Caja
-     * Totales de ingresos, egresos y saldo disponible.
-     */
     public function getBalanceData(): array
     {
         return $this->reportService()->getBalanceData();
     }
 
-    /**
-     * 3. Reporte de Altas y Bajas
-     * Variaciones en el padrón de socios del año actual.
-     */
     public function getAltasBajasData(): array
     {
         return $this->reportService()->getAltasBajasData();
     }
 
-    /**
-     * 4. Resumen de Deuda por Multas
-     * Socios con pagos de tipo 'falta' agrupados.
-     */
     public function getMultasData(): Collection
     {
         return $this->reportService()->getMultasData();
     }
 
-    /**
-     * 5. Lista de Aptos para Corte
-     * Socios sin pagos en los últimos 6 meses.
-     */
     public function getAptosParaCorteData(): Collection
     {
         return $this->reportService()->getAptosParaCorteData();
+    }
+
+    // =========================================================================
+    // CUOTAS EXTRAORDINARIAS — FILTRO Y CÁLCULO
+    // =========================================================================
+
+    public function filtrarCuotaExt(?int $id): void
+    {
+        $this->filtroTipoCuotaId = $id;
+    }
+
+    private function calcularDeudoresExtraordinarias(): Collection
+    {
+        $query = ExtraordinaryPaymentType::where('active', true);
+
+        if ($this->filtroTipoCuotaId) {
+            $query->where('id', $this->filtroTipoCuotaId);
+        }
+
+        $tipos = $query->get();
+
+        if ($tipos->isEmpty()) {
+            return collect();
+        }
+
+        $tipoIds = $tipos->pluck('id');
+
+        $socios = Associate::where('status', 'activo')
+            ->with('sector')
+            ->get();
+
+        // Pagos ya realizados agrupados por socio
+        $pagados = ExtraordinaryPayment::whereIn('extraordinary_payment_type_id', $tipoIds)
+            ->get()
+            ->groupBy('associate_id')
+            ->map(fn($rows) => $rows->pluck('extraordinary_payment_type_id')->toArray());
+
+        $deudores = collect();
+
+        foreach ($socios as $socio) {
+            $tiposPagadosPorSocio = $pagados->get($socio->id, []);
+
+            $cuotasPendientes = $tipos->filter(
+                fn($t) => !in_array($t->id, $tiposPagadosPorSocio)
+            );
+
+            if ($cuotasPendientes->isEmpty()) continue;
+
+            $deudores->push([
+                'id'                => $socio->id,
+                'name'              => $socio->name,
+                'last_name'         => $socio->last_name,
+                'sector'            => $socio->sector?->name,
+                'cuotas_pendientes' => $cuotasPendientes->pluck('name')->toArray(),
+                'total_deuda'       => $cuotasPendientes->sum('amount'),
+            ]);
+        }
+
+        return $deudores->sortBy('last_name')->values();
     }
 
     // =========================================================================
@@ -215,13 +258,46 @@ class ReportManager extends Component
     public function exportAllReportsPDF(): mixed
     {
         return $this->pdfService()->buildPdf('pdf.reportes.todos', [
-            'morosos'   => $this->getMorososData(),
-            'balance'   => $this->getBalanceData(),
-            'altasBajas'=> $this->getAltasBajasData(),
-            'multas'    => $this->getMultasData(),
-            'aptosCorte'=> $this->getAptosParaCorteData(),
+            'morosos'    => $this->getMorososData(),
+            'balance'    => $this->getBalanceData(),
+            'altasBajas' => $this->getAltasBajasData(),
+            'multas'     => $this->getMultasData(),
+            'aptosCorte' => $this->getAptosParaCorteData(),
         ], 'reportes-completos');
     }
+
+    public function exportDeudoresExtraordinariasPDF(): mixed
+    {
+        $tiposCuotaExt               = ExtraordinaryPaymentType::where('active', true)->get();
+        $deudoresExtraordinariasData = $this->calcularDeudoresExtraordinarias();
+
+        $jass = [
+            'nombre'    => Setting::get('jass_nombre', 'JASS'),
+            'direccion' => Setting::get('jass_direccion', ''),
+        ];
+
+        $data = [
+            'jass'      => $jass,
+            'deudores'  => $deudoresExtraordinariasData,
+            'tipos'     => $tiposCuotaExt,
+            'filtro'    => $this->filtroTipoCuotaId
+                ? $tiposCuotaExt->firstWhere('id', $this->filtroTipoCuotaId)?->name
+                : 'Todas',
+            'fecha'     => now()->format('d/m/Y H:i'),
+            'total'     => $deudoresExtraordinariasData->sum('total_deuda'),
+        ];
+
+        return response()->streamDownload(function () use ($data) {
+            $pdf = Pdf::loadView('pdf.deudores-extraordinarias', $data);
+            $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
+            $pdf->setPaper('A4', 'portrait');
+            echo $pdf->output();
+        }, 'deudores-extraordinarias-' . now()->format('Ymd') . '.pdf');
+    }
+
+    // =========================================================================
+    // ACCIONES DEL PANEL LATERAL
+    // =========================================================================
 
     public function viewDetails(): void
     {
@@ -244,7 +320,7 @@ class ReportManager extends Component
     public function exportAttendanceExcel($eventId)
     {
         $event = Event::find($eventId);
-        
+
         if (!$event) {
             session()->flash('error', 'El evento no existe.');
             return;
@@ -252,7 +328,6 @@ class ReportManager extends Component
 
         $filename = 'Asistencia_' . str_replace(' ', '_', $event->name) . '.xlsx';
 
-        // Esto dispara la descarga del Excel con múltiples hojas
         return Excel::download(new AttendanceExport($eventId), $filename);
     }
 
@@ -262,35 +337,31 @@ class ReportManager extends Component
 
     public function render(): mixed
     {
-        // Resumen de caja del día filtrado
-        $resumenDiario = $this->reportService()->getDailySummary($this->fecha_filtro);
-
-        // Lista de morosos sin mapear (para tabla principal)
-        $morosos = $this->reportService()->getMorososModels();
-
-        // Padrón completo ordenado
-        $associates = $this->reportService()->getAllAssociates();
-
-        // Historial de pagos paginado
-        $payments = $this->reportService()->getPaymentsPaginated(10);
-
-        // Sectores con sus socios
+        $resumenDiario     = $this->reportService()->getDailySummary($this->fecha_filtro);
+        $morosos           = $this->reportService()->getMorososModels();
+        $associates        = $this->reportService()->getAllAssociates();
+        $payments          = $this->reportService()->getPaymentsPaginated(10);
         $sectoresConSocios = $this->reportService()->getSectoresConSocios();
 
+        $tiposCuotaExt               = ExtraordinaryPaymentType::where('active', true)
+                                            ->orderBy('name')
+                                            ->get();
+        $deudoresExtraordinariasData = $this->calcularDeudoresExtraordinarias();
+
         return view('livewire.admin.report-manager', [
-            // Datos generales
-            'resumenDiario'     => $resumenDiario,
-            'totalGeneral'      => $resumenDiario->sum('total'),
-            'morosos'           => $morosos,
-            'associates'        => $associates,
-            'payments'          => $payments,
-            'sectoresConSocios' => $sectoresConSocios,
-            // Datos para las tarjetas de reporte
-            'morososData'       => $this->getMorososData(),
-            'balanceData'       => $this->getBalanceData(),
-            'altasBajasData'    => $this->getAltasBajasData(),
-            'multasData'        => $this->getMultasData(),
-            'aptosCorteData'    => $this->getAptosParaCorteData(),
+            'resumenDiario'               => $resumenDiario,
+            'totalGeneral'                => $resumenDiario->sum('total'),
+            'morosos'                     => $morosos,
+            'associates'                  => $associates,
+            'payments'                    => $payments,
+            'sectoresConSocios'           => $sectoresConSocios,
+            'morososData'                 => $this->getMorososData(),
+            'balanceData'                 => $this->getBalanceData(),
+            'altasBajasData'              => $this->getAltasBajasData(),
+            'multasData'                  => $this->getMultasData(),
+            'aptosCorteData'              => $this->getAptosParaCorteData(),
+            'tiposCuotaExt'               => $tiposCuotaExt,
+            'deudoresExtraordinariasData' => $deudoresExtraordinariasData,
         ])->layout('layouts.app');
     }
 }

@@ -9,8 +9,16 @@ use Livewire\WithPagination;
 class PaymentHistory extends Component
 {
     use WithPagination;
-    protected $layout = 'layouts.app';
+
     public $search = '';
+    public $selectedPayment;
+
+    public function previewPayment($id)
+    {
+        $this->selectedPayment = Payment::with('associate')->find($id);
+
+        $this->dispatch('open-modal');
+    }
 
     public function render()
     {
@@ -23,6 +31,8 @@ class PaymentHistory extends Component
             ->latest()
             ->paginate(10);
 
-        return view('livewire.admin.payment-history', ['payments' => $payments]);
+        return view('livewire.admin.payment-history', [
+            'payments' => $payments
+        ]);
     }
 }

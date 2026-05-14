@@ -12,20 +12,42 @@
                     <th class="p-6">Socio</th>
                     <th class="p-6">Monto</th>
                     <th class="p-10">Concepto</th>
+                    <th class="p-6">Acciones</th>
                 </tr>
             </thead>
+
             <tbody class="divide-y divide-zinc-800">
                 @foreach($payments as $pago)
                     <tr class="hover:bg-white/5 transition-all">
                         <td class="p-6 text-blue-500 font-black">#{{ $pago->invoice_number }}</td>
-                        <!-- //nombre y apellido del socio -->
-                        <td class="p-6 text-white font-bold">{{ $pago->associate->last_name }}, {{ $pago->associate->name }}</td>   
-                        <td class="p-18 text-green-500 font-black">S/ {{ number_format($pago->amount, 2) }}</td>
-                        <td class="p-10 text-zinc-500 text-[10px] uppercase font-bold">{{ $pago->concept }}</td>
+
+                        <td class="p-6 text-white font-bold">
+                            {{ $pago->associate->last_name }}, {{ $pago->associate->name }}
+                        </td>
+
+                        <td class="p-18 text-green-500 font-black">
+                            S/ {{ number_format($pago->amount, 2) }}
+                        </td>
+
+                        <td class="p-10 text-zinc-500 text-[10px] uppercase font-bold">
+                            {{ $pago->concept }}
+                        </td>
+
+                        <!-- ACCIONES -->
+                        <td class="p-6">
+                            <button
+                                wire:click="previewPayment({{ $pago->id }})"
+                                class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition">
+                                Vista previa
+                            </button>
+                        </td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
-        <div class="p-6">{{ $payments->links() }}</div>
+
+        <div class="p-6">
+            {{ $payments->links() }}
+        </div>
     </div>
 </div>

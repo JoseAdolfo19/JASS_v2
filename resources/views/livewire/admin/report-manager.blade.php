@@ -106,7 +106,7 @@
             <div class="bg-[#1a1a1a] rounded-[2.5rem] border border-zinc-800 overflow-hidden shadow-2xl">
                 <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
                     <div>
-                        <h3 class="text-white font-black uppercase italic text-lg">Deuda por Multas de Faenas y Asambleas</h3>
+                        <h3 class="text-white font-black uppercase italic text-lg">Deuda por Multas de Faenas y Asambleas pagadas</h3>
                         <p class="text-zinc-500 text-[10px] font-bold">Separación de ingresos por conceptos especiales</p>
                     </div>
                     <button wire:click="exportMultasPDF" class="bg-orange-600 hover:bg-orange-500 text-white font-black px-4 py-2 rounded-xl uppercase text-xs flex items-center gap-2">
@@ -159,7 +159,7 @@
                         <div class="text-zinc-300 text-xs">{{ $aptosCorteData->count() }} socio(s) superan los 6 meses de deuda</div>
                     </div>
                     <div class="space-y-3">
-                        @foreach($aptosCorteData->take(5) as $item)
+                        @foreach($aptosCorteData->take(2) as $item)
                         <div class="flex justify-between items-center bg-red-900/10 border border-red-600/20 p-3 rounded-xl">
                             <div>
                                 <div class="text-white font-bold text-sm">{{ $item['associate']['last_name'] }}, {{ $item['associate']['name'] }}</div>
@@ -168,9 +168,9 @@
                             <div class="text-red-400 font-black text-lg">{{ $item['meses_deuda'] }} meses</div>
                         </div>
                         @endforeach
-                        @if($aptosCorteData->count() > 5)
+                        @if($aptosCorteData->count() > 2)
                         <div class="text-center text-zinc-500 text-xs">
-                            Y {{ $aptosCorteData->count() - 5 }} socio(s) más aptos para corte...
+                            Y {{ $aptosCorteData->count() - 2 }} socio(s) más aptos para corte...
                         </div>
                         @endif
                     </div>
@@ -181,6 +181,97 @@
                     @endif
                 </div>
             </div>
+            {{-- 6. DEUDORES DE CUOTAS EXTRAORDINARIAS --}}
+<div class="bg-[#1a1a1a] rounded-[2.5rem] border border-zinc-800 overflow-hidden shadow-2xl">
+    <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
+        <div>
+            <h3 class="text-white font-black uppercase italic text-lg">Deudores de Cuotas Extraordinarias</h3>
+            <p class="text-zinc-500 text-[10px] font-bold">Socios que no han pagado cuotas acordadas en reunión</p>
+        </div>
+        <button wire:click="exportDeudoresExtraordinariasPDF"
+            class="bg-purple-600 hover:bg-purple-500 text-white font-black px-4 py-2 rounded-xl uppercase text-xs flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            PDF
+        </button>
+    </div>
+
+    <div class="p-6 space-y-5">
+
+        {{-- Filtro por cuota --}}
+        <div class="flex flex-wrap gap-2 items-center">
+            <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest shrink-0">Filtrar por cuota:</span>
+            <button wire:click="filtrarCuotaExt(null)"
+                class="px-3 py-1 rounded-xl text-[10px] font-black uppercase transition
+                    {{ is_null($filtroTipoCuotaId) ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' }}">
+                Todas
+            </button>
+            @foreach($tiposCuotaExt as $tipo)
+                <button wire:click="filtrarCuotaExt({{ $tipo->id }})"
+                    class="px-3 py-1 rounded-xl text-[10px] font-black uppercase transition
+                        {{ $filtroTipoCuotaId === $tipo->id ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' }}">
+                    {{ $tipo->name }}
+                </button>
+            @endforeach
+        </div>
+
+        @if($deudoresExtraordinariasData->isEmpty())
+            <div class="text-center py-8 text-zinc-500 text-sm">
+                ✓ Todos los socios han pagado las cuotas extraordinarias activas.
+            </div>
+        @else
+            {{-- Resumen global --}}
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-purple-900/20 border border-purple-500/20 rounded-2xl p-4 text-center">
+                    <p class="text-purple-300 font-black text-2xl">{{ $deudoresExtraordinariasData->count() }}</p>
+                    <p class="text-zinc-500 text-[10px] uppercase font-bold">Socios Deudores</p>
+                </div>
+                <div class="bg-purple-900/20 border border-purple-500/20 rounded-2xl p-4 text-center">
+                    <p class="text-purple-300 font-black text-2xl">
+                        S/ {{ number_format($deudoresExtraordinariasData->sum('total_deuda'), 2) }}
+                    </p>
+                    <p class="text-zinc-500 text-[10px] uppercase font-bold">Total por Cobrar</p>
+                </div>
+            </div>
+
+            {{-- Lista de deudores --}}
+            <div class="space-y-3">
+                @foreach($deudoresExtraordinariasData->take(2) as $item)
+                    <div class="bg-zinc-800/50 border border-zinc-700 rounded-2xl p-4">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-white font-black text-sm uppercase truncate">
+                                    {{ $item['last_name'] }}, {{ $item['name'] }}
+                                </p>
+                                <p class="text-zinc-500 text-[10px]">{{ $item['sector'] ?? 'Sin sector' }}</p>
+                                {{-- Cuotas pendientes de este socio --}}
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    @foreach($item['cuotas_pendientes'] as $cuota)
+                                        <span class="bg-purple-900/40 border border-purple-500/30 text-purple-300 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                            {{ $cuota }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-purple-400 font-black text-lg">S/ {{ number_format($item['total_deuda'], 2) }}</p>
+                                <p class="text-zinc-600 text-[10px]">{{ count($item['cuotas_pendientes']) }} cuota(s)</p>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+
+                @if($deudoresExtraordinariasData->count() > 2)
+                    <div class="text-center text-zinc-500 text-xs py-2">
+                        Y {{ $deudoresExtraordinariasData->count() - 2 }} socio(s) más...
+                    </div>
+                @endif
+            </div>
+        @endif
+    </div>
+</div>
         </div>
         {{-- PANEL LATERAL --}}
         <div class="w-full lg:w-1/3 space-y-6">

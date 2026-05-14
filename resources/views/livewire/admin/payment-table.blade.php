@@ -3,7 +3,7 @@
         <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-900/20">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
         </div>
-        <h2 class="text-3xl font-black text-white tracking-tight italic uppercase">Caja de Cobranza</h2>
+        <h2 class="text-3xl font-black text-white tracking-tight italic uppercase">Caja de Cobranza - Cuota Familiar </h2>
     </div>
 
     <div class="bg-zinc-900 border border-zinc-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-8">
@@ -73,12 +73,6 @@
                 </div>
 
                 <div class="bg-black/40 p-6 rounded-3xl border border-zinc-800">
-                    @if($cantidadMultas > 0)
-                        <div class="mb-4 p-4 rounded-3xl bg-zinc-900 border border-amber-500/20 text-amber-200 text-xs">
-                            Multas pendientes: {{ $cantidadMultas }} falta(s) cerrada(s) por cobrar.
-                            <strong class="text-white">S/ {{ number_format($finesPendientes, 2) }}</strong> se agregará a la boleta.
-                        </div>
-                    @endif
                     <div class="flex justify-between items-center mb-4">
                         <span class="text-zinc-500 font-bold text-[10px] uppercase">Mora Calculada</span>
                         <div class="flex items-center gap-3">

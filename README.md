@@ -38,6 +38,15 @@ JASS_v2 es una aplicación web construída con Laravel y Livewire para manejar:
 - `/admin/egresos` — Gestión de egresos.
 - `/admin/configuracion` — Ajustes de tarifas y datos de la JASS.
 
+## Cambios recientes importantes
+
+- Se mejoró la generación de recibos PDF para soporte de boletas con tamaño fijo y filas múltiples.
+- La plantilla de recibo ahora produce dos boletas por fila: copia **TESORERO** y copia **USUARIO**.
+- Se ajustaron márgenes y espaciado para que las boletas queden bien posicionadas en A4 landscape.
+- Las boletas ahora caben en una estructura de 10cm de ancho por 8cm de alto, con separación entre ellas y espacio desde el borde superior e izquierdo.
+- Se añadió la función `numeroALetras()` en `app/Livewire/Admin/PaymentTable.php` para pasar el monto en palabras al PDF.
+- Se corrigió la carga de variables necesarias en la vista `resources/views/pdf/recibo.blade.php`: `monto_en_letras`, `meses_text` y `fecha_recibo`.
+
 ## Cómo usarlo sin leer el código
 
 1. Copia `.env.example` a `.env`.

@@ -8,10 +8,13 @@ use App\Livewire\Admin\SectorManager;
 use App\Livewire\Admin\AssociateManager;
 use App\Livewire\Admin\Home;
 use App\Livewire\Admin\PaymentTable;
+use App\Livewire\Admin\PaymentOthers;
 use App\Livewire\Admin\PaymentHistory;
 use App\Livewire\Admin\SettingsManager;
 use App\Livewire\Admin\ExpenseManager;
 use App\Livewire\Admin\ReportManager;
+use App\Livewire\Admin\AttendanceManager;
+use App\Livewire\Admin\FineTable;          // ← NUEVO
 
 Route::get('/', function () {
     return view('welcome');
@@ -29,7 +32,6 @@ Route::post('/login', function (Request $request) {
 
     if (Auth::attempt($credentials, $request->boolean('remember'))) {
         $request->session()->regenerate();
-
         return redirect()->intended(route('admin.home'));
     }
 
@@ -40,10 +42,8 @@ Route::post('/login', function (Request $request) {
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
-
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-
     return redirect('/');
 })->name('logout');
 
@@ -56,11 +56,13 @@ Route::middleware(['auth', 'nocache'])->group(function () {
     Route::get('/sectores', SectorManager::class)->name('admin.sectores');
     Route::get('/asociados', AssociateManager::class)->name('admin.asociados');
     Route::get('/pagos', PaymentTable::class)->name('admin.pagos');
+    Route::get('/otros-pagos', PaymentOthers::class)->name('admin.otros');
     Route::get('/historial-pagos', PaymentHistory::class)->name('admin.historial-pagos');
+    Route::get('/multas', FineTable::class)->name('admin.multas');             // ← NUEVO
     Route::get('/recibo/{id}', [PdfController::class, 'recibo'])->name('recibo.pdf');
     Route::get('/egreso/{id}', [PdfController::class, 'egreso'])->name('egreso.pdf');
     Route::get('/admin/reportes', ReportManager::class)->name('admin.reportes');
     Route::get('/admin/egresos', ExpenseManager::class)->name('admin.egresos');
     Route::get('/admin/configuracion', SettingsManager::class)->name('admin.settings');
-    Route::get('/admin/asistencia', \App\Livewire\Admin\AttendanceManager::class)->name('admin.asistencia');
+    Route::get('/admin/asistencia', AttendanceManager::class)->name('admin.asistencia');
 });
