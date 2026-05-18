@@ -58,7 +58,7 @@ class AssociateManager extends Component
         return [
             'name'              => 'required|string|max:255',
             'last_name'         => 'required|string|max:255',
-            'dni'               => 'required|digits:8|unique:associates,dni,' . $this->associate_id,
+            'dni'               => 'digits:8|unique:associates,dni,' . $this->associate_id,
             'entry_date'        => 'required|date',
             'sector_id'         => 'required|exists:sectors,id',
             'address'           => 'nullable|string|max:500',
@@ -149,9 +149,9 @@ class AssociateManager extends Component
                 'dni'               => $this->dni,
                 'entry_date'        => $this->entry_date,
                 'sector_id'         => $this->sector_id,
-                'address'           => $this->address ?: null,
-                'meter_number'      => $this->meter_number ?: null,
-                'address_reference' => $this->address_reference ?: null,
+                'address'           => trim($this->address) !== '' ? trim($this->address) : null,
+                'meter_number'      => trim($this->meter_number) !== '' ? trim($this->meter_number) : null,
+                'address_reference' => trim($this->address_reference) !== '' ? trim($this->address_reference) : null,
                 'status'            => $this->status,
             ]
         );
