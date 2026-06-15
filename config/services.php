@@ -34,5 +34,15 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | ConsultaPerú API — RENIEC / SUNAT
+    |--------------------------------------------------------------------------
+    | Token obtenido en https://app.consultaperuapi.com
+    | Agrega CONSULTAPERU_TOKEN=tu_token_aqui en tu archivo .env
+    */
+    'consultaperu' => [
+        'token' => env('CONSULTAPERU_TOKEN', '8579b6c4-22f9-444a-bd88-b8b949ef1408'),
+    ],
 
 ];

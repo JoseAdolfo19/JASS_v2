@@ -11,6 +11,7 @@ class Payment extends Model
 
     protected $fillable = [
         'associate_id',
+        'connection_id',
         'amount',
         'type',    
         'concept',
@@ -30,5 +31,10 @@ class Payment extends Model
     public function associate()
     {
         return $this->belongsTo(Associate::class);
+    }
+
+    public function connection()
+    {
+        return $this->belongsTo(Connection::class);
     }
 }

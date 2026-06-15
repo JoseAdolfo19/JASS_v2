@@ -39,6 +39,21 @@ class Associate extends Model
     {
         return $this->hasMany(Payment::class);
     }
+    
+     public function connections(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Connection::class);
+    }
+ 
+    public function primaryConnection(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Connection::class)->where('is_primary', true);
+    }
+ 
+    public function activeConnections(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Connection::class)->where('active', true);
+    }
 
     // =========================================================================
     // ACCESSORS

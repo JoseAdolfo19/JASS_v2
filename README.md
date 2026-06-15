@@ -22,7 +22,6 @@ JASS_v2 es una aplicación web construída con Laravel y Livewire para manejar:
 - Livewire 4
 - Tailwind CSS + Vite
 - DomPDF para descargas de recibos PDF
-- Maatwebsite Excel para exportaciones
 
 ## Rutas y flujo principal
 
@@ -46,6 +45,7 @@ JASS_v2 es una aplicación web construída con Laravel y Livewire para manejar:
 - Las boletas ahora caben en una estructura de 10cm de ancho por 8cm de alto, con separación entre ellas y espacio desde el borde superior e izquierdo.
 - Se añadió la función `numeroALetras()` en `app/Livewire/Admin/PaymentTable.php` para pasar el monto en palabras al PDF.
 - Se corrigió la carga de variables necesarias en la vista `resources/views/pdf/recibo.blade.php`: `monto_en_letras`, `meses_text` y `fecha_recibo`.
+ - El contador de socios ahora incluye las instalaciones/conexiones secundarias (no primarias). Los totales de "Activos" y "Suspendidos" suman también las conexiones adicionales por su estado, y el badge "En página" muestra la suma de socios + instalaciones adicionales visibles en la página. Archivos clave: [app/Livewire/Admin/AssociateManager.php](app/Livewire/Admin/AssociateManager.php) y [resources/views/livewire/admin/associate-manager.blade.php](resources/views/livewire/admin/associate-manager.blade.php).
 
 ## Cómo usarlo sin leer el código
 
@@ -67,4 +67,17 @@ La pantalla inicial contiene un formulario de acceso. Si el usuario se autentica
 ## Nota rápida
 
 Este proyecto está diseñado para ser usado por el staff de la JASS y centraliza la administración de cobros, multas, pagos y asistentes en una sola interfaz.
+
+## Estructura — carpetas y archivos relevantes
+
+A continuación se listan las rutas y carpetas más importantes para entender y modificar la funcionalidad administrativa:
+
+- [app/Livewire/Admin](app/Livewire/Admin): Componentes Livewire del área administrativa. Ejemplos: `AssociateManager.php`, `PaymentTable.php`.
+- [app/Models](app/Models): Modelos Eloquent principales: `Associate.php`, `Connection.php`, `Payment.php`, `Sector.php`, `Setting.php`.
+- [database/migrations](database/migrations): Migraciones para tablas como `associates`, `connections`, `payments`, `sectors` y ajustes posteriores (soft deletes, campos adicionales).
+- [resources/views/layouts](resources/views/layouts): Layouts principales (p. ej. `app.blade.php`) usados por las vistas y componentes.
+- [resources/views/livewire/admin](resources/views/livewire/admin): Vistas Blade usadas por los componentes Livewire administrativos. Ejemplo: `associate-manager.blade.php`.
+- [resources/views/pdf](resources/views/pdf): Plantillas para generación de PDFs (recibos, reportes). Ejemplo: `recibo.blade.php`.
+
+Nota: Recientemente se actualizó la lógica del padrón para que las instalaciones/conexiones secundarias se incluyan en los totales y en el badge "En página". Los cambios principales están en [app/Livewire/Admin/AssociateManager.php](app/Livewire/Admin/AssociateManager.php) y en la vista [resources/views/livewire/admin/associate-manager.blade.php](resources/views/livewire/admin/associate-manager.blade.php).
 

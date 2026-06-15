@@ -12,7 +12,6 @@
                     <th class="p-6">Socio</th>
                     <th class="p-6">Monto</th>
                     <th class="p-10">Concepto</th>
-                    <th class="p-6">Acciones</th>
                 </tr>
             </thead>
 
@@ -31,15 +30,6 @@
 
                         <td class="p-10 text-zinc-500 text-[10px] uppercase font-bold">
                             {{ $pago->concept }}
-                        </td>
-
-                        <!-- ACCIONES -->
-                        <td class="p-6">
-                            <button
-                                wire:click="previewPayment({{ $pago->id }})"
-                                class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition">
-                                Vista previa
-                            </button>
                         </td>
                     </tr>
                 @endforeach

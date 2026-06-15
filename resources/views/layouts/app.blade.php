@@ -110,5 +110,37 @@
         </main>
     </div>
     @livewireScripts
+
+    <script>
+    // Descarga el PDF y redirige al home después
+    document.addEventListener('livewire:initialized', () => {
+        Livewire.on('descargar-y-redirigir', ({ url, redirectTo }) => {
+            // Crear enlace invisible y hacer clic para descargar
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Redirigir tras un breve delay para que el download inicie
+            setTimeout(() => {
+                window.location.href = redirectTo;
+            }, 1200);
+        });
+
+        // Solo descarga, sin redirigir (para reimprimir pagos anteriores)
+        Livewire.on('descargar-pdf', ({ url }) => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    });
+    </script>
 </body>
 </html>

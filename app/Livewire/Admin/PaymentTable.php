@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class PaymentTable extends Component
@@ -18,23 +19,46 @@ class PaymentTable extends Component
     // =========================================================================
 
     public $asociado_id;
+    public ?int $connection_id       = null;  // Conexión/instalación seleccionada
+    public $conexiones              = [];     // Todas las conexiones del asociado
     public string $search            = '';
     public $resumenDeuda             = null;
     public array $mesesSeleccionados = [];
-    public float $montoCobrar        = 10;
     public bool  $aplicarMora        = true;
     public float $totalFinal         = 0;
-    public int   $cantidadMultas     = 0;
-    public float $finesPendientes    = 0;
-    public $payments                 = [];
+    // `payments` se obtiene como propiedad computada para evitar serializar el paginador
+    public int $payments_page        = 1; // página actual para historial de pagos
+    public int $mesesAdelanto        = 5;  // cuántos meses futuros mostrar
+    public bool  $usarMontoPersonalizado = false;   // toggle monto manual
+    public ?float $montoPersonalizado    = null;    // monto que escribe el tesorero
+    public ?string $errorMessage       = null;
 
     // =========================================================================
     // CICLO DE VIDA
     // =========================================================================
 
-    public function mount(): void
+    // Tarifas históricas por año (sin posibilidad de edición manual)
+    private const TARIFAS = [
+        2013 => 3.00,
+        2014 => 3.00,
+        2015 => 3.00,
+        2016 => 3.00,
+        2017 => 3.00,
+        2018 => 3.00,
+        2019 => 3.00,
+        2020 => 3.00,
+        2021 => 3.00,
+        2022 => 3.00,
+        2023 => 4.00,
+        2024 => 4.00,
+        2025 => 10.00,
+        2026 => 10.00,
+    ];
+
+    private function tarifaParaMes(string $mesAnio): float
     {
-        $this->montoCobrar = (float) Setting::get('cuota_mensual', 10);
+        $anio = (int) substr($mesAnio, 0, 4);
+        return self::TARIFAS[$anio] ?? 10.00;
     }
 
     // =========================================================================
@@ -43,67 +67,204 @@ class PaymentTable extends Component
 
     public function seleccionarSocio(int $id): void
     {
+        // Limpiar completamente todo el estado anterior
+        $this->reset([
+            'search',
+            'conexiones',
+            'connection_id',
+            'resumenDeuda',
+            'mesesSeleccionados',
+            'aplicarMora',
+            'totalFinal',
+            'usarMontoPersonalizado',
+            'montoPersonalizado',
+            'errorMessage'
+        ]);
+        
+        // Ahora cargar el nuevo socio
         $this->asociado_id = $id;
-        $this->search      = '';
-        $this->cargarDeuda($id);
+        $this->payments_page = 1;
+        $this->cargarConexiones($id);
     }
 
     public function updatedAsociadoId($value): void
     {
-        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal', 'payments']);
+        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal', 'errorMessage', 'connection_id', 'conexiones']);
         if (!$value) return;
-        $this->cargarDeuda($value);
+        $this->cargarConexiones($value);
     }
 
-    private function cargarDeuda(int $asociadoId): void
+    public function updatedConnectionId($value): void
     {
-        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal']);
+        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal', 'errorMessage']);
+        if (!$this->asociado_id || !$value) return;
+        $this->payments_page = 1;
+        $this->cargarDeuda($this->asociado_id, $value);
+    }
+
+    public function goToPaymentsPage(int $page): void
+    {
+        $this->payments_page = max(1, $page);
+        if ($this->asociado_id) {
+            $this->cargarDeuda($this->asociado_id, $this->connection_id);
+        }
+    }
+
+    // Propiedad computada que devuelve el paginador de `payments` para la vista.
+    public function getPaymentsProperty()
+    {
+        if (!$this->asociado_id) {
+            return Payment::whereRaw('0 = 1')->paginate(5, ['*'], 'payments_page', $this->payments_page);
+        }
+
+        $connectionId = $this->connection_id;
+        if (!$connectionId) {
+            $connectionId = Associate::find($this->asociado_id)?->connections()->where('is_primary', true)->value('id');
+        }
+
+        if (!$connectionId) {
+            return Payment::whereRaw('0 = 1')->paginate(5, ['*'], 'payments_page', $this->payments_page);
+        }
+
+        return Payment::where('associate_id', $this->asociado_id)
+            ->where('connection_id', $connectionId)
+            ->where('type', '!=', 'falta')
+            ->latest()
+            ->paginate(5, ['*'], 'payments_page', $this->payments_page);
+    }
+
+    private function cargarConexiones(int $asociadoId): void
+    {
+        $asociado = Associate::with('connections')->find($asociadoId);
+        if (!$asociado) {
+            $this->conexiones = [];
+            return;
+        }
+
+        $this->conexiones = $asociado->connections()
+            ->orderBy('is_primary', 'desc')
+            ->orderBy('label', 'asc')
+            ->get()
+            ->map(fn($conn) => [
+                'id'    => $conn->id,
+                'label' => $conn->is_primary ? 'Casa Titular' : $conn->label,
+            ])
+            ->toArray();
+
+        // Auto-seleccionar la conexión principal
+        if (!empty($this->conexiones)) {
+            // Buscar la conexión primaria en el array
+            $primary = collect($this->conexiones)
+                ->where('label', 'Casa Titular')
+                ->first();
+            
+            $this->connection_id = $primary['id'] ?? $this->conexiones[0]['id'];
+            $this->cargarDeuda($asociadoId, $this->connection_id);
+        }
+    }
+
+    private function obtenerMesesPagados(int $asociadoId, ?int $connectionId = null, bool $lock = false): array
+    {
+        $query = Payment::where('associate_id', $asociadoId)
+            ->where('type', 'cuota');
+
+        if ($connectionId) {
+            $query->where('connection_id', $connectionId);
+        }
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->get()
+            ->pluck('months_paid')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    private function obtenerMesesDuplicados(array $meses, bool $lock = false): array
+    {
+        if (!$this->asociado_id) {
+            return [];
+        }
+
+        $mesesPagados = $this->obtenerMesesPagados($this->asociado_id, $this->connection_id, $lock);
+
+        return array_values(array_intersect($meses, $mesesPagados));
+    }
+
+    private function cargarDeuda(int $asociadoId, ?int $connectionId = null): void
+    {
+        $this->reset(['mesesSeleccionados', 'resumenDeuda', 'totalFinal',
+                   'usarMontoPersonalizado', 'montoPersonalizado', 'errorMessage']);
 
         $asociado = Associate::find($asociadoId);
         if (!$asociado) return;
 
-        // Solo pagos de tipo cuota (no multas)
-        $this->payments = Payment::where('associate_id', $asociadoId)
-            ->where('type', '!=', 'falta')
-            ->latest()
-            ->get();
+        // Obtener la conexión para acceder a su fecha de inicio
+        $connection = null;
+        if ($connectionId) {
+            $connection = $asociado->connections()->where('id', $connectionId)->first();
+        } elseif (!empty($this->conexiones)) {
+            // Fallback: obtener la conexión principal
+            $connection = $asociado->connections()->where('is_primary', true)->first();
+            if ($connection) {
+                $connectionId = $connection->id;
+            }
+        }
 
-        $fechaInicio = $asociado->entry_date
-            ? Carbon::parse($asociado->entry_date)->startOfMonth()
-            : Carbon::parse($asociado->created_at)->startOfMonth();
+        if (!$connection) {
+            return;
+        }
 
-        $mesActual = Carbon::now()->startOfMonth();
+        // El paginador de `payments` se obtiene como propiedad computada (getPaymentsProperty)
 
-        // Meses ya pagados
-        $mesesPagados = Payment::where('associate_id', $asociadoId)
-            ->get()
-            ->pluck('months_paid')
-            ->flatten()
-            ->toArray();
+        $fechaInicio = $connection->entry_date
+            ? Carbon::parse($connection->entry_date)->startOfMonth()
+            : Carbon::parse($connection->created_at)->startOfMonth();
 
-        // Construir lista de meses pendientes
+        $mesActual  = Carbon::now()->startOfMonth();
+        $mesLimite  = $mesActual->copy()->addMonths(max(1, $this->mesesAdelanto));
+
+        // Meses ya pagados (solo para esta conexión)
+        $mesesPagados = $this->obtenerMesesPagados($asociadoId, $connection->id);
+
+        // Construir lista: deudas pasadas + mes actual + meses futuros (adelantos)
         $listaDeuda    = [];
         $deudaAgrupada = [];
         $tempFecha     = $fechaInicio->copy();
 
-        while ($tempFecha->lessThanOrEqualTo($mesActual)) {
-            $mesAnio = $tempFecha->format('Y-m');
+        while ($tempFecha->lessThan($mesLimite)) {
+            $mesAnio  = $tempFecha->format('Y-m');
+            $esFuturo = $tempFecha->greaterThan($mesActual);
 
             if (!in_array($mesAnio, $mesesPagados)) {
                 $listaDeuda[]    = $mesAnio;
                 $deudaAgrupada[] = [
-                    'etiqueta' => strtoupper(Carbon::parse($mesAnio)->translatedFormat('F Y')),
-                    'meses'    => [$mesAnio],
+                    'etiqueta'  => strtoupper(Carbon::parse($mesAnio)->translatedFormat('F Y')),
+                    'meses'     => [$mesAnio],
+                    'adelanto'  => $esFuturo,
+                    'tarifa'    => $this->tarifaParaMes($mesAnio),
                 ];
             }
 
             $tempFecha->addMonth();
         }
 
-        $this->resumenDeuda      = ['items' => $deudaAgrupada, 'mora_calculada' => 0];
+        $this->resumenDeuda       = ['items' => $deudaAgrupada, 'mora_calculada' => 0];
         $this->mesesSeleccionados = $listaDeuda;
 
         $this->actualizarTotal();
+    }
+
+    public function updatedMesesAdelanto(): void
+    {
+        if ($this->asociado_id) {
+            $this->cargarDeuda($this->asociado_id, $this->connection_id);
+        }
     }
 
     // =========================================================================
@@ -114,23 +275,55 @@ class PaymentTable extends Component
     {
         if (!$this->resumenDeuda) return;
 
-        $cantidad  = count($this->mesesSeleccionados);
-        $subtotal  = $cantidad * $this->montoCobrar;
+        $mesActual = Carbon::now()->startOfMonth()->format('Y-m');
+
+        // Subtotal calculado con tarifa histórica por cada mes seleccionado
+        $subtotal = collect($this->mesesSeleccionados)
+            ->sum(fn($m) => $this->tarifaParaMes($m));
+
+        // Mora solo sobre meses vencidos
+        $mesesVencidos = collect($this->mesesSeleccionados)
+            ->filter(fn($m) => $m <= $mesActual)
+            ->count();
 
         $montoMora   = (float) Setting::get('mora_monto', 60);
         $mesesMora   = (int)   Setting::get('mora_meses', 3);
-        $bloquesMora = $mesesMora > 0 ? floor($cantidad / $mesesMora) : 0;
+        $bloquesMora = $mesesMora > 0 ? floor($mesesVencidos / $mesesMora) : 0;
         $mora        = $bloquesMora * $montoMora;
 
+        // Subtotales por grupo de tarifa (para mostrar en vista y boleta)
+        $grupos = collect($this->mesesSeleccionados)
+            ->groupBy(fn($m) => $this->tarifaParaMes($m))
+            ->map(fn($meses, $tarifa) => [
+                'tarifa'   => (float) $tarifa,
+                'cantidad' => $meses->count(),
+                'subtotal' => round($meses->count() * $tarifa, 2),
+            ])
+            ->sortBy('tarifa')
+            ->values()
+            ->toArray();
+
         $this->resumenDeuda['mora_calculada'] = $mora;
-        $this->totalFinal = $subtotal + ($this->aplicarMora ? $mora : 0);
+        $this->resumenDeuda['grupos_tarifa']  = $grupos;
+        $this->resumenDeuda['subtotal']       = round($subtotal, 2);
+
+        // Si el tesorero ingresó un monto manual, usarlo como total final
+        // pero conservar el desglose histórico solo para referencia
+        if ($this->usarMontoPersonalizado && $this->montoPersonalizado !== null && $this->montoPersonalizado > 0) {
+            $this->totalFinal = round((float) $this->montoPersonalizado, 2);
+        } else {
+            $this->totalFinal = round($subtotal + ($this->aplicarMora ? $mora : 0), 2);
+        }
     }
 
-    public function updatedAplicarMora(): void { $this->actualizarTotal(); }
-    public function updatedMontoCobrar(): void { $this->actualizarTotal(); }
+    public function updatedAplicarMora(): void          { $this->actualizarTotal(); }
+    public function updatedUsarMontoPersonalizado(): void { $this->actualizarTotal(); }
+    public function updatedMontoPersonalizado(): void     { $this->actualizarTotal(); }
 
     public function toggleMes(string $mes): void
     {
+        $this->errorMessage = null;
+
         if (in_array($mes, $this->mesesSeleccionados)) {
             $this->mesesSeleccionados = array_values(array_diff($this->mesesSeleccionados, [$mes]));
         } else {
@@ -149,28 +342,51 @@ class PaymentTable extends Component
             return null;
         }
 
-        $ultimo        = Payment::max('invoice_number');
-        $nuevoNro      = $ultimo ? intval($ultimo) + 1 : 1;
-        $invoiceNumber = str_pad($nuevoNro, 6, '0', STR_PAD_LEFT);
+        return DB::transaction(function () {
+            $mesesDuplicados = $this->obtenerMesesDuplicados($this->mesesSeleccionados);
 
-        $moraAplicada = $this->aplicarMora
-            ? ($this->resumenDeuda['mora_calculada'] ?? 0)
-            : 0;
+            if (!empty($mesesDuplicados)) {
+                $this->errorMessage = 'Se ha evitado un cobro duplicado. Ya se cobraron los meses: ' . implode(', ', $mesesDuplicados) . '.';
+                $this->mesesSeleccionados = array_values(array_diff($this->mesesSeleccionados, $mesesDuplicados));
+                $this->actualizarTotal();
+                return null;
+            }
 
-        $concept = 'PAGO DE MESES: ' . implode(', ', $this->mesesSeleccionados);
+            $ultimo        = Payment::where('type', 'cuota')->max('invoice_number');
+            $nuevoNro      = $ultimo ? intval($ultimo) + 1 : 1;
+            $invoiceNumber = str_pad($nuevoNro, 6, '0', STR_PAD_LEFT);
 
-        $payment = Payment::create([
-            'invoice_number'   => $invoiceNumber,
-            'associate_id'     => $this->asociado_id,
-            'amount'           => $this->totalFinal,
-            'type'             => 'cuota',
-            'concept'          => $concept,
-            'months_paid'      => $this->mesesSeleccionados,
-            'late_fee_applied' => $moraAplicada,
-            'fine_amount'      => 0,
-        ]);
+            $moraAplicada = $this->aplicarMora
+                ? ($this->resumenDeuda['mora_calculada'] ?? 0)
+                : 0;
 
-        return $this->generarReciboPDFActual($payment);
+            $mesActual     = Carbon::now()->startOfMonth()->format('Y-m');
+            $mesesDeuda    = array_filter($this->mesesSeleccionados, fn($m) => $m <= $mesActual);
+            $mesesAdelanto = array_filter($this->mesesSeleccionados, fn($m) => $m > $mesActual);
+
+            $conceptParts = [];
+            if (!empty($mesesDeuda))    $conceptParts[] = 'CUOTAS: ' . implode(', ', $mesesDeuda);
+            if (!empty($mesesAdelanto)) $conceptParts[] = 'ADELANTO: ' . implode(', ', $mesesAdelanto);
+            $concept = implode(' + ', $conceptParts) ?: 'PAGO DE CUOTA';
+
+            if ($this->usarMontoPersonalizado && $this->montoPersonalizado > 0) {
+                $concept .= ' [MONTO AJUSTADO]';
+            }
+
+            $payment = Payment::create([
+                'invoice_number'   => $invoiceNumber,
+                'associate_id'     => $this->asociado_id,
+                'connection_id'    => $this->connection_id,
+                'amount'           => $this->totalFinal,
+                'type'             => 'cuota',
+                'concept'          => $concept,
+                'months_paid'      => $this->mesesSeleccionados,
+                'late_fee_applied' => $moraAplicada,
+                'fine_amount'      => 0,
+            ]);
+
+            return $this->generarReciboPDFActual($payment);
+        });
     }
 
     private function generarReciboPDFActual(Payment $payment): mixed
@@ -184,34 +400,32 @@ class PaymentTable extends Component
             'tesorero'   => Setting::get('jass_tesorero', ''),
         ];
 
-        $meses = collect($this->mesesSeleccionados)->map(function ($mes) {
+        $mesActualStr = Carbon::now()->startOfMonth()->format('Y-m');
+
+        $meses = collect($this->mesesSeleccionados)->map(function ($mes) use ($mesActualStr) {
             return [
                 'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
-                'monto'    => $this->montoCobrar,
+                'monto'    => $this->tarifaParaMes($mes),
+                'adelanto' => $mes > $mesActualStr,
             ];
         });
 
-        $subtotal     = count($this->mesesSeleccionados) * $this->montoCobrar;
+        $subtotal     = $this->resumenDeuda['subtotal'] ?? $meses->sum('monto');
+        $gruposTarifa = $this->resumenDeuda['grupos_tarifa'] ?? [];
         $moraAplicada = $this->aplicarMora ? ($this->resumenDeuda['mora_calculada'] ?? 0) : 0;
-
-        $meses_text = $meses->pluck('etiqueta')->implode(', ');
-        $monto_en_letras = $this->numeroALetras($this->totalFinal);
-        $fecha_recibo = now()->format('d \d\e F \d\e Y');
 
         $data = [
             'jass'          => $jass,
             'asociado'      => $asociado,
             'payment'       => $payment,
             'meses'         => $meses,
+            'grupos_tarifa' => $gruposTarifa,
             'subtotal'      => $subtotal,
             'mora'          => $moraAplicada,
             'fine'          => 0,
             'total'         => $this->totalFinal,
             'fecha_emision' => now()->format('d/m/Y H:i'),
             'multasDetalle' => [],
-            'meses_text'    => $meses_text,
-            'fecha_recibo'  => $fecha_recibo,
-            'monto_en_letras' => $monto_en_letras,
         ];
 
         return response()->streamDownload(function () use ($data) {
@@ -246,19 +460,12 @@ class PaymentTable extends Component
             'tesorero'   => Setting::get('jass_tesorero', ''),
         ];
 
-        $meses_text = $receiptData['meses']->pluck('etiqueta')->implode(', ');
-        $monto_en_letras = $this->numeroALetras((float) $payment->amount);
-        $fecha_recibo = now()->format('d \d\e F \d\e Y');
-
         $data = array_merge($receiptData, [
             'jass'          => $jass,
             'asociado'      => $asociado,
             'payment'       => $payment,
             'fecha_emision' => now()->format('d/m/Y H:i'),
             'multasDetalle' => [],
-            'meses_text'    => $meses_text,
-            'fecha_recibo'  => $fecha_recibo,
-            'monto_en_letras' => $monto_en_letras,
         ]);
 
         return response()->streamDownload(function () use ($data) {
@@ -272,49 +479,58 @@ class PaymentTable extends Component
 
     private function buildReceiptData(Payment $payment): array
     {
-        $mora        = (float) ($payment->late_fee_applied ?? 0);
-        $fine        = (float) ($payment->fine_amount ?? 0);
-        $baseAmount  = max((float) $payment->amount - $mora - $fine, 0);
-        $periodos    = max(count($payment->months_paid ?: []), 1);
-        $montoPorMes = round($baseAmount / $periodos, 2);
+        $mora = (float) ($payment->late_fee_applied ?? 0);
+        $fine = (float) ($payment->fine_amount ?? 0);
 
-        $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($montoPorMes) {
+        $mesActualStr = Carbon::now()->startOfMonth()->format('Y-m');
+
+        // Reconstruir con tarifa histórica por mes
+        $meses = collect($payment->months_paid ?: [])->map(function ($mes) use ($mesActualStr) {
             return [
                 'etiqueta' => strtoupper(Carbon::parse($mes)->translatedFormat('F Y')),
-                'monto'    => $montoPorMes,
+                'monto'    => $this->tarifaParaMes($mes),
+                'adelanto' => $mes > $mesActualStr,
             ];
         });
 
+        // Subtotales agrupados por tarifa
+        $gruposTarifa = $meses->groupBy('monto')
+            ->map(fn($items, $tarifa) => [
+                'tarifa'   => (float) $tarifa,
+                'cantidad' => $items->count(),
+                'subtotal' => round($items->count() * $tarifa, 2),
+            ])
+            ->sortBy('tarifa')
+            ->values()
+            ->toArray();
+
+        $subtotal = round($meses->sum('monto'), 2);
+
         return [
-            'meses'            => $meses,
-            'subtotal'         => round($meses->sum('monto'), 2),
-            'mora'             => $mora,
-            'fine'             => $fine,
-            'total'            => (float) $payment->amount,
-            'meses_text'       => $meses->pluck('etiqueta')->implode(', '),
-            'fecha_recibo'     => now()->format('d \d\e F \d\e Y'),
-            'monto_en_letras'  => $this->numeroALetras((float) $payment->amount),
+            'meses'         => $meses,
+            'grupos_tarifa' => $gruposTarifa,
+            'subtotal'      => $subtotal,
+            'mora'          => $mora,
+            'fine'          => $fine,
+            'total'         => (float) $payment->amount,
         ];
-    }
-
-    private function numeroALetras(float $numero): string
-    {
-        $entero = floor($numero);
-        $decimales = round(($numero - $entero) * 100);
-
-        try {
-            $formatter = new \NumberFormatter('es', \NumberFormatter::SPELLOUT);
-            $texto = mb_strtoupper($formatter->format($entero));
-        } catch (\Throwable $e) {
-            $texto = strtoupper(number_format($entero, 0, ',', '.'));
-        }
-
-        return trim($texto) . ' CON ' . str_pad($decimales, 2, '0', STR_PAD_LEFT) . '/100 SOLES';
     }
 
     // =========================================================================
     // RENDER
     // =========================================================================
+
+    public function incrementarAdelanto(): void
+    {
+        $this->mesesAdelanto++;
+        if ($this->asociado_id) $this->cargarDeuda($this->asociado_id, $this->connection_id);
+    }
+
+    public function decrementarAdelanto(): void
+    {
+        $this->mesesAdelanto = max(1, $this->mesesAdelanto - 1);
+        if ($this->asociado_id) $this->cargarDeuda($this->asociado_id);
+    }
 
     public function render(): mixed
     {
@@ -333,7 +549,9 @@ class PaymentTable extends Component
         }
 
         return view('livewire.admin.payment-table', [
-            'associates' => $associates,
+            'associates'   => $associates,
+            'mesesAdelanto' => $this->mesesAdelanto,
+            'payments'      => $this->payments,
         ]);
     }
 }
