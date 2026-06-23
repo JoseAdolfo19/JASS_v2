@@ -60,10 +60,10 @@ class PdfController extends Controller
         $fecha_recibo = $payment->created_at->format('d') . ' de ' . ($monthNames[$payment->created_at->month] ?? '') . ' del ' . $payment->created_at->year;
         $monto_en_letras = $this->numeroALetras($payment->amount);
 
-        $pdf = Pdf::loadView('pdf.recibo', compact('payment', 'asociado', 'jass', 'fecha_emision', 'meses', 'subtotal', 'mora', 'fine', 'total', 'meses_text', 'fecha_recibo', 'monto_en_letras'));
+        $pdf = Pdf::loadView('pdf.recibo-4x-hoja', compact('payment', 'asociado', 'jass', 'fecha_emision', 'meses', 'subtotal', 'mora', 'fine', 'total', 'meses_text', 'fecha_recibo', 'monto_en_letras'));
         $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
         $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-        $pdf->setPaper('a4', 'landscape');
+        $pdf->setPaper('a4', 'portrait');
 
         return $pdf->stream('recibo-'.$id.'.pdf');
     }

@@ -1,323 +1,602 @@
-cat > /mnt/user-data/outputs/recibo-4x-hoja_blade.php << 'BLADE_EOF'
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comprobante de Pago - Cobros de Agua Potable</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 7.5pt;
-    color: #111;
-    background: #fff;
-    width: 210mm;
-    height: 297mm;
-    padding: 5mm 6mm;
-}
+    body {
+      background: #e8edf2;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 20px;
+    }
 
-/* Grid 2x2 */
-.grid-hoja {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 4mm;
-    width: 100%;
-    height: 100%;
-}
+    @media print {
+      body { background: white; padding: 0; }
+      .page { gap: 0; }
+      .comprobante { break-inside: avoid; }
+    }
 
-.boleta {
-    border: 1.5px solid #bbb;
-    border-radius: 4px;
-    padding: 3mm 3.5mm 2.5mm;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
+    .page {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
 
-/* ══ CABECERA ══ */
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1mm;
-}
+    /* ── Comprobante card ── */
+    .comprobante {
+      background: #ffffff;
+      border-radius: 10px;
+      border: 1.5px solid #c0c8d8;
+      overflow: hidden;
+      font-size: 11.5px;
+    }
 
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 1.5mm;
-    flex: 1;
-}
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px 6px;
+    }
 
-.logo-wrap { flex-shrink:0; width:11mm; height:11mm; }
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-.titulo-principal {
-    font-size: 8.5pt;
-    font-weight: 900;
-    color: #1a3a7c;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    line-height: 1.1;
-}
+    .logo-circle {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 2px solid #1a3a8f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #e6f4fb;
+    }
 
-.subtitulo {
-    font-size: 6pt;
-    color: #1a7abf;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-top: 0.3mm;
-}
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
 
-.org-name { font-size:5.5pt; color:#666; margin-top:0.3mm; }
+    .title-main {
+      font-size: 13.5px;
+      font-weight: 900;
+      color: #1a3a8f;
+      letter-spacing: 0.3px;
+    }
 
-.badge-numero {
-    flex-shrink: 0;
-    border: 2px solid #1a3a7c;
-    border-radius: 4px;
-    text-align: center;
-    padding: 0.8mm 1.5mm;
-    min-width: 16mm;
-}
-.badge-label { font-size:5.5pt; font-weight:900; color:#1a3a7c; text-transform:uppercase; }
-.badge-num   { font-size:11pt; font-weight:900; color:#e53e3e; letter-spacing:1px; line-height:1.1; }
+    .title-sub {
+      font-size: 8.5px;
+      font-weight: 700;
+      color: #1a8fcb;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
 
-.blue-line {
-    height: 2px;
-    background: linear-gradient(90deg, #1a3a7c 0%, #1a7abf 60%, #fff 100%);
-    margin: 1mm 0;
-    border-radius: 2px;
-}
+    /* ── Boleta badge ── */
+    .boleta-box {
+      background: #1a3a8f;
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      text-align: center;
+      min-width: 64px;
+      flex-shrink: 0;
+    }
 
-/* ══ CUERPO ══ */
-.body-grid {
-    display: flex;
-    gap: 2mm;
-    flex: 1;
-    margin-top: 1mm;
-}
+    .boleta-label {
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #fff;
+    }
 
-.body-fields { flex:1; }
+    .boleta-num {
+      font-size: 14px;
+      font-weight: 900;
+      color: #e63030;
+      background: #fff;
+      border-radius: 3px;
+      padding: 1px 4px;
+      margin-top: 3px;
+      display: block;
+      letter-spacing: 1px;
+    }
 
-.gota-lado {
-    flex-shrink: 0;
-    width: 18mm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    /* ── Wave divider ── */
+    .wave {
+      height: 6px;
+      background: linear-gradient(90deg, #1a3a8f 0%, #1a8fcb 40%, #5bc8f5 70%, #1a3a8f 100%);
+      opacity: 0.4;
+    }
 
-.campo { display:flex; align-items:flex-start; gap:1.5mm; margin-bottom:2mm; }
-.campo-icono { width:4mm; flex-shrink:0; margin-top:0.2mm; }
-.campo-contenido { flex:1; min-width:0; }
+    /* ── Body ── */
+    .body {
+      display: flex;
+      padding: 10px 12px 6px;
+      gap: 8px;
+    }
 
-.campo-label {
-    font-size: 6pt;
-    font-weight: 900;
-    color: #1a3a7c;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-    display: block;
-    margin-bottom: 0.3mm;
-}
+    .fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
 
-.campo-valor {
-    font-size: 7.5pt;
-    font-weight: 700;
-    color: #111;
-    border-bottom: 1px solid #999;
-    display: block;
-    padding-bottom: 0.3mm;
-    min-height: 3.5mm;
-}
+    .field-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 1px;
+    }
 
-.campo-valor-sm {
-    font-size: 6.5pt;
-    font-weight: 700;
-    border-bottom: 1px solid #999;
-    display: inline-block;
-    padding-bottom: 0.3mm;
-    min-height: 3.5mm;
-    min-width: 18mm;
-}
+    .field-row.no-line {
+      border-bottom: none;
+      align-items: center;
+    }
 
-.periodo-fila { display:flex; gap:2mm; align-items:center; margin-top:0.3mm; }
-.periodo-parte { display:flex; align-items:center; gap:1mm; }
-.periodo-txt { font-size:6pt; font-weight:900; color:#1a3a7c; }
+    .field-icon {
+      font-size: 12px;
+      color: #1a3a8f;
+      flex-shrink: 0;
+      width: 16px;
+      text-align: center;
+    }
 
-/* ══ PIE ══ */
-.pie-grid {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-top: 1.5mm;
-}
+    .field-label {
+      font-size: 8.5px;
+      font-weight: 700;
+      color: #1a3a8f;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
 
-.gracias-txt {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-style: italic;
-    font-size: 8pt;
-    color: #1a3a7c;
-    font-weight: 700;
-}
+    .field-value {
+      flex: 1;
+      font-size: 10px;
+      font-weight: 700;
+      color: #111;
+      min-height: 14px;
+      text-align: right;
+      padding-left: 4px;
+    }
 
-.firma-box {
-    border: 1px solid #aaa;
-    border-radius: 3px;
-    width: 22mm;
-    padding: 1mm;
-    text-align: center;
-    min-height: 10mm;
-}
-.firma-linea { border-top:1px solid #555; margin:5mm 2mm 1mm; }
-.firma-label { font-size:5.5pt; color:#555; text-transform:uppercase; font-weight:700; }
+    /* Periodo DE / A */
+    .periodo-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      padding-left: 20px;
+    }
 
-.barra-pie {
-    margin-top: 1.5mm;
-    padding: 2mm 3mm;
-    text-align: center;
-    font-size: 7pt;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #fff;
-    border-radius: 2px;
-}
-.barra-tesorero { background: #1a3a7c; }
-.barra-cliente  { background: #2d7d32; }
-</style>
+    .periodo-sub {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 1px;
+      flex: 1;
+    }
+
+    /* ── Water drop illustration ── */
+    .drop-wrap {
+      flex-shrink: 0;
+      width: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Footer area ── */
+    .footer-area {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 8px 12px 6px;
+    }
+
+    .gracias {
+      font-family: 'Times New Roman', Georgia, serif;
+      font-style: italic;
+      font-size: 12.5px;
+      color: #1a3a8f;
+      font-weight: 500;
+    }
+
+    .firma-box {
+      border: 1px solid #888;
+      border-radius: 6px;
+      width: 88px;
+      height: 44px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 3px;
+    }
+
+    .firma-label {
+      font-size: 7.5px;
+      color: #555;
+      text-align: center;
+      border-top: 1px solid #888;
+      width: 68px;
+      padding-top: 2px;
+    }
+
+    /* ── Footer bar ── */
+    .footer-bar {
+      padding: 5px 0;
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+    }
+
+    .tesorero .footer-bar { background: #1a3a8f; }
+    .cliente  .footer-bar { background: #2a8a2a; }
+  </style>
 </head>
 <body>
 
 @php
-    $nombreSocio  = strtoupper($asociado->last_name) . ', ' . strtoupper($asociado->name);
-    $nroBoleta    = str_pad($payment->invoice_number, 6, '0', STR_PAD_LEFT);
-    $mesesList    = collect($meses)->pluck('etiqueta');
+    $nombreSocio  = strtoupper($asociado->last_name ?? '') . ', ' . strtoupper($asociado->name ?? '');
+    $nroBoleta    = str_pad($payment->invoice_number ?? 0, 6, '0', STR_PAD_LEFT);
+    $mesesList    = collect($meses ?? [])->pluck('etiqueta');
     $periodoDesde = $mesesList->first() ?? '—';
     $periodoHasta = $mesesList->last()  ?? '—';
 
-    $svgGota = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 110" width="100%" height="100%">
-        <defs>
-            <radialGradient id="g4" cx="40%" cy="35%">
-                <stop offset="0%" stop-color="#b3e5fc"/>
-                <stop offset="60%" stop-color="#1a7abf"/>
-                <stop offset="100%" stop-color="#0d47a1"/>
-            </radialGradient>
-        </defs>
-        <path d="M40 5 C40 5 8 50 8 68 a32 32 0 0 0 64 0 C72 50 40 5 40 5Z"
-              fill="url(#g4)" stroke="#0d47a1" stroke-width="1.5"/>
-        <ellipse cx="28" cy="48" rx="7" ry="11" fill="rgba(255,255,255,0.35)" transform="rotate(-20,28,48)"/>
-        <ellipse cx="40" cy="102" rx="30" ry="6" fill="#1a7abf" opacity="0.3"/>
-        <ellipse cx="40" cy="107" rx="22" ry="4" fill="#1a7abf" opacity="0.2"/>
-    </svg>';
-
-    $svgLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="100%" height="100%">
-        <circle cx="40" cy="40" r="38" fill="#1a3a7c" stroke="#0d2a6b" stroke-width="2"/>
-        <path d="M40 12 C40 12 20 40 20 52 a20 20 0 0 0 40 0 C60 40 40 12 40 12Z"
-              fill="#b3e5fc" stroke="#fff" stroke-width="1"/>
-        <path d="M40 18 C40 18 24 42 24 52 a16 16 0 0 0 32 0 C56 42 40 18 40 18Z"
-              fill="#1a7abf"/>
-        <ellipse cx="33" cy="43" rx="4" ry="7" fill="rgba(255,255,255,0.4)" transform="rotate(-20,33,43)"/>
-        <path d="M10 68 Q25 62 40 68 Q55 74 70 68 L70 76 Q55 82 40 76 Q25 70 10 76Z"
-              fill="#1a7abf" opacity="0.5"/>
-    </svg>';
-
-    $icoPersona    = '<svg viewBox="0 0 24 24" width="12" height="12" fill="#1a3a7c"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>';
-    $icoDolar      = '<svg viewBox="0 0 24 24" width="12" height="12" fill="#1a3a7c"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>';
-    $icoCalendario = '<svg viewBox="0 0 24 24" width="12" height="12" fill="#1a3a7c"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>';
+    $icoUser = '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#1a3a8f;color:#fff;font-size:8px;font-weight:900;text-align:center;line-height:12px;">U</span>';
+    $icoDollar = '<span style="color:#1a3a8f;font-weight:900;font-size:13px;">$</span>';
+    $icoCalendar = '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#1a3a8f;color:#fff;font-size:8px;font-weight:900;text-align:center;line-height:12px;">D</span>';
 @endphp
 
-<div class="grid-hoja">
+<div class="page">
 
-    @php
-        $copias = [
-            ['label' => 'Copia para el Tesorero', 'clase' => 'barra-tesorero'],
-            ['label' => 'Copia para el Cliente',  'clase' => 'barra-cliente'],
-            ['label' => 'Copia para el Tesorero', 'clase' => 'barra-tesorero'],
-            ['label' => 'Copia para el Cliente',  'clase' => 'barra-cliente'],
-        ];
-    @endphp
-
-    @foreach($copias as $copia)
-    <div class="boleta">
-        <div class="header">
-            <div class="header-left">
-                <div class="logo-wrap">{!! $svgLogo !!}</div>
-                <div>
-                    <div class="titulo-principal">Comprobante de Pago</div>
-                    <div class="subtitulo">💧 Cobros de Agua Potable 💧</div>
-                    <div class="org-name">{{ $jass['nombre'] }}</div>
-                </div>
-            </div>
-            <div class="badge-numero">
-                <div class="badge-label">N° Boleta</div>
-                <div class="badge-num">{{ $nroBoleta }}</div>
-            </div>
+  <!-- ══════════════════════════════════
+       COMPROBANTE 1 — TESORERO
+  ══════════════════════════════════ -->
+  <div class="comprobante tesorero">
+    <div class="header">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <svg viewBox="0 0 46 46" width="46" height="46" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="23" r="22" fill="#e6f4fb"/>
+            <ellipse cx="23" cy="32" rx="14" ry="5" fill="#5bc8f5" opacity="0.5"/>
+            <path d="M23 8 Q28 18 28 26 A5 5 0 0 1 18 26 Q18 18 23 8Z" fill="#1a8fcb"/>
+            <path d="M23 11 Q25 19 25 26 A2 2 0 0 1 21 26 Q21 19 23 11Z" fill="white" opacity="0.35"/>
+            <ellipse cx="23" cy="36" rx="10" ry="3" fill="#1a8fcb" opacity="0.2"/>
+          </svg>
         </div>
-
-        <div class="blue-line"></div>
-
-        <div class="body-grid">
-            <div class="body-fields">
-
-                <div class="campo">
-                    <div class="campo-icono">{!! $icoPersona !!}</div>
-                    <div class="campo-contenido">
-                        <span class="campo-label">Nombre del Pagador:</span>
-                        <span class="campo-valor">{{ $nombreSocio }}</span>
-                    </div>
-                </div>
-
-                <div class="campo">
-                    <div class="campo-icono">{!! $icoDolar !!}</div>
-                    <div class="campo-contenido">
-                        <span class="campo-label">Monto Pagado (S/):</span>
-                        <span class="campo-valor">S/ {{ number_format($total, 2) }}</span>
-                    </div>
-                </div>
-
-                <div class="campo">
-                    <div class="campo-icono">{!! $icoCalendario !!}</div>
-                    <div class="campo-contenido">
-                        <span class="campo-label">Período Pagado:</span>
-                        <div class="periodo-fila">
-                            <div class="periodo-parte">
-                                <span class="periodo-txt">De:</span>
-                                <span class="campo-valor-sm">{{ $periodoDesde }}</span>
-                            </div>
-                            <div class="periodo-parte">
-                                <span class="periodo-txt">A:</span>
-                                <span class="campo-valor-sm">{{ $periodoHasta }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="campo">
-                    <div class="campo-icono">{!! $icoCalendario !!}</div>
-                    <div class="campo-contenido">
-                        <span class="campo-label">Fecha de Pago:</span>
-                        <span class="campo-valor">{{ $fecha_emision }}</span>
-                    </div>
-                </div>
-
-            </div>
-            <div class="gota-lado">
-                <div style="width:16mm;height:22mm;">{!! $svgGota !!}</div>
-            </div>
+        <div class="title-block">
+          <span class="title-main">{{ $jass['nombre'] ?? 'COMPROBANTE DE PAGO' }}</span>
+          <span class="title-sub">COBROS DE AGUA POTABLE</span>
         </div>
-
-        <div class="pie-grid">
-            <div class="gracias-txt">¡Gracias por su pago! 💧</div>
-            <div class="firma-box">
-                <div class="firma-linea"></div>
-                <div class="firma-label">Firma y Sello</div>
-            </div>
-        </div>
-
-        <div class="barra-pie {{ $copia['clase'] }}">{{ $copia['label'] }}</div>
+      </div>
+      <div class="boleta-box">
+        <div class="boleta-label">N° BOLETA</div>
+        <span class="boleta-num">{{ $nroBoleta }}</span>
+      </div>
     </div>
-    @endforeach
+    <div class="wave"></div>
+    <div class="body">
+      <div class="fields">
+        <div class="field-row">
+          <span class="field-icon">{!! $icoUser !!}</span>
+          <span class="field-label">NOMBRE DEL PAGADOR:</span>
+          <span class="field-value">{{ $nombreSocio }}</span>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoDollar !!}</span>
+          <span class="field-label">MONTO PAGADO (S/):</span>
+          <span class="field-value">S/ {{ number_format($total, 2) }}</span>
+        </div>
+        <div class="field-row no-line">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">PERIODO PAGADO:</span>
+        </div>
+        <div class="periodo-row">
+          <div class="periodo-sub">
+            <span class="field-label">DE:</span>
+            <span class="field-value">{{ $periodoDesde }}</span>
+          </div>
+          <div class="periodo-sub">
+            <span class="field-label">A:</span>
+            <span class="field-value">{{ $periodoHasta }}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">FECHA DE PAGO:</span>
+          <span class="field-value">{{ $fecha_emision ?? now()->format('d/m/Y H:i') }}</span>
+        </div>
+      </div>
+      <div class="drop-wrap">
+        <svg viewBox="0 0 62 85" width="62" height="85" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="drop-a" cx="38%" cy="28%" r="65%">
+              <stop offset="0%" stop-color="#ceeefb"/>
+              <stop offset="100%" stop-color="#1a8fcb"/>
+            </radialGradient>
+          </defs>
+          <path d="M31 6 Q47 32 47 52 A16 16 0 0 1 15 52 Q15 32 31 6Z" fill="url(#drop-a)" stroke="#1a3a8f" stroke-width="0.8"/>
+          <path d="M25 28 Q27 22 34 25" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <ellipse cx="31" cy="70" rx="18" ry="6" fill="#5bc8f5" opacity="0.4"/>
+          <ellipse cx="14" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+          <ellipse cx="48" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+        </svg>
+      </div>
+    </div>
+    <div class="footer-area">
+      <div class="gracias">¡Gracias por su pago!</div>
+      <div class="firma-box">
+        <div class="firma-label">Firma y Sello</div>
+      </div>
+    </div>
+    <div class="footer-bar">COPIA PARA EL TESORERO</div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       COMPROBANTE 2 — TESORERO
+  ══════════════════════════════════ -->
+  <div class="comprobante tesorero">
+    <div class="header">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <svg viewBox="0 0 46 46" width="46" height="46" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="23" r="22" fill="#e6f4fb"/>
+            <ellipse cx="23" cy="32" rx="14" ry="5" fill="#5bc8f5" opacity="0.5"/>
+            <path d="M23 8 Q28 18 28 26 A5 5 0 0 1 18 26 Q18 18 23 8Z" fill="#1a8fcb"/>
+            <path d="M23 11 Q25 19 25 26 A2 2 0 0 1 21 26 Q21 19 23 11Z" fill="white" opacity="0.35"/>
+            <ellipse cx="23" cy="36" rx="10" ry="3" fill="#1a8fcb" opacity="0.2"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <span class="title-main">{{ $jass['nombre'] ?? 'COMPROBANTE DE PAGO' }}</span>
+          <span class="title-sub">COBROS DE AGUA POTABLE</span>
+        </div>
+      </div>
+      <div class="boleta-box">
+        <div class="boleta-label">N° BOLETA</div>
+        <span class="boleta-num">{{ $nroBoleta }}</span>
+      </div>
+    </div>
+    <div class="wave"></div>
+    <div class="body">
+      <div class="fields">
+        <div class="field-row">
+          <span class="field-icon">{!! $icoUser !!}</span>
+          <span class="field-label">NOMBRE DEL PAGADOR:</span>
+          <span class="field-value">{{ $nombreSocio }}</span>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoDollar !!}</span>
+          <span class="field-label">MONTO PAGADO (S/):</span>
+          <span class="field-value">S/ {{ number_format($total, 2) }}</span>
+        </div>
+        <div class="field-row no-line">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">PERIODO PAGADO:</span>
+        </div>
+        <div class="periodo-row">
+          <div class="periodo-sub">
+            <span class="field-label">DE:</span>
+            <span class="field-value">{{ $periodoDesde }}</span>
+          </div>
+          <div class="periodo-sub">
+            <span class="field-label">A:</span>
+            <span class="field-value">{{ $periodoHasta }}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">FECHA DE PAGO:</span>
+          <span class="field-value">{{ $fecha_emision ?? now()->format('d/m/Y H:i') }}</span>
+        </div>
+      </div>
+      <div class="drop-wrap">
+        <svg viewBox="0 0 62 85" width="62" height="85" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="drop-b" cx="38%" cy="28%" r="65%">
+              <stop offset="0%" stop-color="#ceeefb"/>
+              <stop offset="100%" stop-color="#1a8fcb"/>
+            </radialGradient>
+          </defs>
+          <path d="M31 6 Q47 32 47 52 A16 16 0 0 1 15 52 Q15 32 31 6Z" fill="url(#drop-b)" stroke="#1a3a8f" stroke-width="0.8"/>
+          <path d="M25 28 Q27 22 34 25" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <ellipse cx="31" cy="70" rx="18" ry="6" fill="#5bc8f5" opacity="0.4"/>
+          <ellipse cx="14" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+          <ellipse cx="48" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+        </svg>
+      </div>
+    </div>
+    <div class="footer-area">
+      <div class="gracias">¡Gracias por su pago!</div>
+      <div class="firma-box">
+        <div class="firma-label">Firma y Sello</div>
+      </div>
+    </div>
+    <div class="footer-bar">COPIA PARA EL TESORERO</div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       COMPROBANTE 3 — CLIENTE
+  ══════════════════════════════════ -->
+  <div class="comprobante cliente">
+    <div class="header">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <svg viewBox="0 0 46 46" width="46" height="46" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="23" r="22" fill="#e6f4fb"/>
+            <ellipse cx="23" cy="32" rx="14" ry="5" fill="#5bc8f5" opacity="0.5"/>
+            <path d="M23 8 Q28 18 28 26 A5 5 0 0 1 18 26 Q18 18 23 8Z" fill="#1a8fcb"/>
+            <path d="M23 11 Q25 19 25 26 A2 2 0 0 1 21 26 Q21 19 23 11Z" fill="white" opacity="0.35"/>
+            <ellipse cx="23" cy="36" rx="10" ry="3" fill="#1a8fcb" opacity="0.2"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <span class="title-main">{{ $jass['nombre'] ?? 'COMPROBANTE DE PAGO' }}</span>
+          <span class="title-sub">COBROS DE AGUA POTABLE</span>
+        </div>
+      </div>
+      <div class="boleta-box">
+        <div class="boleta-label">N° BOLETA</div>
+        <span class="boleta-num">{{ $nroBoleta }}</span>
+      </div>
+    </div>
+    <div class="wave"></div>
+    <div class="body">
+      <div class="fields">
+        <div class="field-row">
+          <span class="field-icon">{!! $icoUser !!}</span>
+          <span class="field-label">NOMBRE DEL PAGADOR:</span>
+          <span class="field-value">{{ $nombreSocio }}</span>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoDollar !!}</span>
+          <span class="field-label">MONTO PAGADO (S/):</span>
+          <span class="field-value">S/ {{ number_format($total, 2) }}</span>
+        </div>
+        <div class="field-row no-line">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">PERIODO PAGADO:</span>
+        </div>
+        <div class="periodo-row">
+          <div class="periodo-sub">
+            <span class="field-label">DE:</span>
+            <span class="field-value">{{ $periodoDesde }}</span>
+          </div>
+          <div class="periodo-sub">
+            <span class="field-label">A:</span>
+            <span class="field-value">{{ $periodoHasta }}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">FECHA DE PAGO:</span>
+          <span class="field-value">{{ $fecha_emision ?? now()->format('d/m/Y H:i') }}</span>
+        </div>
+      </div>
+      <div class="drop-wrap">
+        <svg viewBox="0 0 62 85" width="62" height="85" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="drop-c" cx="38%" cy="28%" r="65%">
+              <stop offset="0%" stop-color="#ceeefb"/>
+              <stop offset="100%" stop-color="#1a8fcb"/>
+            </radialGradient>
+          </defs>
+          <path d="M31 6 Q47 32 47 52 A16 16 0 0 1 15 52 Q15 32 31 6Z" fill="url(#drop-c)" stroke="#1a3a8f" stroke-width="0.8"/>
+          <path d="M25 28 Q27 22 34 25" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <ellipse cx="31" cy="70" rx="18" ry="6" fill="#5bc8f5" opacity="0.4"/>
+          <ellipse cx="14" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+          <ellipse cx="48" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+        </svg>
+      </div>
+    </div>
+    <div class="footer-area">
+      <div class="gracias">¡Gracias por su pago!</div>
+      <div class="firma-box">
+        <div class="firma-label">Firma y Sello</div>
+      </div>
+    </div>
+    <div class="footer-bar">COPIA PARA EL CLIENTE</div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       COMPROBANTE 4 — CLIENTE
+  ══════════════════════════════════ -->
+  <div class="comprobante cliente">
+    <div class="header">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <svg viewBox="0 0 46 46" width="46" height="46" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="23" r="22" fill="#e6f4fb"/>
+            <ellipse cx="23" cy="32" rx="14" ry="5" fill="#5bc8f5" opacity="0.5"/>
+            <path d="M23 8 Q28 18 28 26 A5 5 0 0 1 18 26 Q18 18 23 8Z" fill="#1a8fcb"/>
+            <path d="M23 11 Q25 19 25 26 A2 2 0 0 1 21 26 Q21 19 23 11Z" fill="white" opacity="0.35"/>
+            <ellipse cx="23" cy="36" rx="10" ry="3" fill="#1a8fcb" opacity="0.2"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <span class="title-main">{{ $jass['nombre'] ?? 'COMPROBANTE DE PAGO' }}</span>
+          <span class="title-sub">COBROS DE AGUA POTABLE</span>
+        </div>
+      </div>
+      <div class="boleta-box">
+        <div class="boleta-label">N° BOLETA</div>
+        <span class="boleta-num">{{ $nroBoleta }}</span>
+      </div>
+    </div>
+    <div class="wave"></div>
+    <div class="body">
+      <div class="fields">
+        <div class="field-row">
+          <span class="field-icon">{!! $icoUser !!}</span>
+          <span class="field-label">NOMBRE DEL PAGADOR:</span>
+          <span class="field-value">{{ $nombreSocio }}</span>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoDollar !!}</span>
+          <span class="field-label">MONTO PAGADO (S/):</span>
+          <span class="field-value">S/ {{ number_format($total, 2) }}</span>
+        </div>
+        <div class="field-row no-line">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">PERIODO PAGADO:</span>
+        </div>
+        <div class="periodo-row">
+          <div class="periodo-sub">
+            <span class="field-label">DE:</span>
+            <span class="field-value">{{ $periodoDesde }}</span>
+          </div>
+          <div class="periodo-sub">
+            <span class="field-label">A:</span>
+            <span class="field-value">{{ $periodoHasta }}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-icon">{!! $icoCalendar !!}</span>
+          <span class="field-label">FECHA DE PAGO:</span>
+          <span class="field-value">{{ $fecha_emision ?? now()->format('d/m/Y H:i') }}</span>
+        </div>
+      </div>
+      <div class="drop-wrap">
+        <svg viewBox="0 0 62 85" width="62" height="85" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="drop-d" cx="38%" cy="28%" r="65%">
+              <stop offset="0%" stop-color="#ceeefb"/>
+              <stop offset="100%" stop-color="#1a8fcb"/>
+            </radialGradient>
+          </defs>
+          <path d="M31 6 Q47 32 47 52 A16 16 0 0 1 15 52 Q15 32 31 6Z" fill="url(#drop-d)" stroke="#1a3a8f" stroke-width="0.8"/>
+          <path d="M25 28 Q27 22 34 25" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <ellipse cx="31" cy="70" rx="18" ry="6" fill="#5bc8f5" opacity="0.4"/>
+          <ellipse cx="14" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+          <ellipse cx="48" cy="73" rx="8" ry="3" fill="#5bc8f5" opacity="0.25"/>
+        </svg>
+      </div>
+    </div>
+    <div class="footer-area">
+      <div class="gracias">¡Gracias por su pago!</div>
+      <div class="firma-box">
+        <div class="firma-label">Firma y Sello</div>
+      </div>
+    </div>
+    <div class="footer-bar">COPIA PARA EL CLIENTE</div>
+  </div>
 
 </div>
 </body>

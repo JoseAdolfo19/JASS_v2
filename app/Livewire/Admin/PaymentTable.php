@@ -429,10 +429,10 @@ class PaymentTable extends Component
         ];
 
         return response()->streamDownload(function () use ($data) {
-            $pdf = Pdf::loadView('pdf.recibo', $data);
+            $pdf = Pdf::loadView('pdf.recibo-4x-hoja', $data);
             $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
             $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
+            $pdf->setPaper('a4', 'portrait');
             echo $pdf->output();
         }, 'recibo-' . $payment->invoice_number . '.pdf');
     }
@@ -469,10 +469,10 @@ class PaymentTable extends Component
         ]);
 
         return response()->streamDownload(function () use ($data) {
-            $pdf = Pdf::loadView('pdf.recibo', $data);
+            $pdf = Pdf::loadView('pdf.recibo-4x-hoja', $data);
             $pdf->getDomPDF()->getOptions()->set('isHtml5ParserEnabled', true);
             $pdf->getDomPDF()->getOptions()->set('isRemoteEnabled', false);
-            $pdf->getDomPDF()->setPaper([0, 0, 226.77, 600], 'portrait');
+            $pdf->setPaper('a4', 'portrait');
             echo $pdf->output();
         }, 'recibo-' . $payment->invoice_number . '.pdf');
     }
